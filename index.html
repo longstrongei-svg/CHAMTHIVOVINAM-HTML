@@ -161,6 +161,7 @@ table th, table td{
         <button onclick="openTab('setup')">Thiết lập</button>
         <button onclick="openTab('score')">Phiếu điểm</button>
         <button onclick="openTab('history')">Lịch sử</button>
+        <button onclick="openTab('print')">PHIẾU ĐIỂM IN</button>
     </div>
 
     <!-- TAB 1 -->
@@ -260,12 +261,32 @@ table th, table td{
         </table>
     </div>
     </div>
+     <!-- TAB 4 -->   
+    <div id="print" class="tab-content card">
+    <h3>PHIẾU ĐIỂM IN</h3>
 
+    <div style="display:flex; gap:10px; align-items:center; margin:10px 0;">
+        <button class="btn-primary" onclick="loadPrintPdf()">Tải phiếu điểm</button>
+        <a id="pdfOpenLink" target="_blank" style="text-decoration:none;"></a>
+        <span id="printHint" style="opacity:.7;"></span>
+    </div>
+
+    <iframe
+        id="pdfFrame"
+        style="width:100%; height:75vh; border:1px solid #ddd; border-radius:8px; background:white;"
+    ></iframe>
+    </div>
 </div>
 
 <script>
 
-const API_BASE = "https://giamthiwellspring.site/api";
+const isLocal =
+  location.hostname === "127.0.0.1" ||
+  location.hostname === "localhost";
+
+const API_BASE = isLocal
+  ? "http://127.0.0.1:5000/api"              // chạy local
+  : "https://giamthiwellspring.site/api";   // chạy GitHub
 
 let examConfirmed = false;
 // ===================
@@ -305,7 +326,7 @@ function loadBelts(){
         data.forEach(belt=>{
             select.innerHTML += `<option value="${belt}">${belt}</option>`;
         });
-
+        loadExamHeaders();
         loadCandidates();
     });
 }
@@ -449,7 +470,8 @@ renderHistory();
 
         loadCandidates();
         alert("Đã lưu điểm & ký xác nhận thành công");
-
+        openTab("print");
+        loadPrintPdf();
     }catch(error){
         console.error(error);
 
@@ -693,7 +715,7 @@ function logout(){
 
 function openTab(tabName){
 
-    if(tabName === "score" && !examConfirmed){
+    if ((tabName === "score" || tabName === "print") && !examConfirmed) {
         alert("VUI LÒNG XÁC NHẬN KHÓA THI");
         return;
     }
@@ -1026,6 +1048,29 @@ function clearHistory() {
   saveHistory([]);
   renderHistory();
 }
+
+function loadPrintPdf() {
+  const exam = document.getElementById("examSelect").value;
+  const belt = document.getElementById("beltSelect").value;
+  if (!exam || !belt) {
+    alert("Chọn khóa thi và cấp đai trước");
+    return;
+  }
+
+  const organizer = ""; // nếu muốn truyền đơn vị tổ chức thì gán vào đây
+
+  const url =
+    `${API_BASE}/print_score_pdf?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}&organizer=${encodeURIComponent(organizer)}&t=${Date.now()}`;
+
+  document.getElementById("pdfFrame").src = url;
+
+  const link = document.getElementById("pdfOpenLink");
+  link.href = url;
+  link.textContent = "Mở PDF ở tab mới";
+
+  document.getElementById("printHint").textContent = `${exam} - ${belt}`;
+}
+
 </script>
 
 
