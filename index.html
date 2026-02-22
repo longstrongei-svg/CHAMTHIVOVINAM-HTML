@@ -489,7 +489,17 @@ function loadCandidates(){
                     <td>${c.unit ?? ""}</td>
 
                     ${c.scores.map(s => `
-                        <td><input type="text" value="${s ?? ''}"></td>
+                        <td>
+                        <input
+                            type="text"
+                            inputmode="decimal"
+                            pattern="[0-9]*[.,]?[0-9]*"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            value="${s ?? ''}"
+                        >
+                        </td>
                     `).join("")}
 
                     <td class="total-cell"><b>${c.total ? c.total : ""}</b></td>
@@ -1023,4 +1033,3 @@ function clearHistory() {
 
 </body>
 </html>
-
