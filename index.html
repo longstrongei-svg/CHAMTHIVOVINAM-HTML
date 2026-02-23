@@ -132,7 +132,6 @@ table th, table td{
         <option>Trần Cao Trọng</option>
         <option>Nguyễn Viết Vĩnh</option>
     </select>
-
     <label>Mật khẩu</label>
     <input type="password" id="loginPassword" placeholder="123456">
 
@@ -281,11 +280,20 @@ table th, table td{
 
 <script>
 
-const API_BASE =
-  location.protocol === "file:"
-    ? "http://127.0.0.1:5000/api"     // ✅ khi mở file HTML local
-    : `${location.origin}/api`;       // ✅ khi chạy online cùng domain
+const LOCAL_API = "http://127.0.0.1:5000/api";       // mở file local trên máy server
+const LAN_API   = "http://192.168.1.5:5000/api";     // IP máy chạy CHAMTHI.py
 
+let API_BASE;
+
+if (location.protocol === "file:") {
+    API_BASE = LOCAL_API;
+} 
+else if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    API_BASE = LOCAL_API;
+}
+else {
+    API_BASE = LAN_API;
+}
 let examConfirmed = false;
 
 // ===============================
@@ -699,39 +707,47 @@ document.getElementById("beltSelect")
 // LOGIN
 // ===================
 async function login(){
+  const judge = document.getElementById("loginJudge").value;
+  const pass  = document.getElementById("loginPassword").value;
 
-    const judge = document.getElementById("loginJudge").value;
-    const pass = document.getElementById("loginPassword").value;
-
+  try{
     const res = await fetch(API_BASE + "/login", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            name: judge,
-            password: pass
-        })
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ name: judge, password: pass })
     });
+
+    // Nếu server trả không phải 2xx
+    if(!res.ok){
+      const txt = await res.text();
+      alert("Login lỗi HTTP " + res.status + "\n" + txt.slice(0,200));
+      return;
+    }
 
     const data = await res.json();
 
     if(data.status !== "success"){
-        alert(data.message);
-        return;
+      alert(data.message || "Login fail");
+      return;
     }
 
     if(data.must_change === 1){
-        showChangePasswordPopup(judge);
-        return;
+      showChangePasswordPopup(judge);
+      return;
     }
 
     localStorage.setItem("judge", judge);
-
     document.getElementById("loginPage").style.display="none";
     document.getElementById("dashboard").style.display="block";
     document.getElementById("judgeName").innerText = judge;
 
     loadExams();
     renderHistory();
+
+  }catch(err){
+    console.error(err);
+    alert("Không gọi được API login.\n" + (err?.message || err));
+  }
 }
 
 function showChangePasswordPopup(name){
@@ -1178,4 +1194,3 @@ setInterval(() => {
 
 </body>
 </html>
-
