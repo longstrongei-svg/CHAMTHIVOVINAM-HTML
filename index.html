@@ -280,15 +280,64 @@ table th, table td{
 
 <script>
 
-const isLocal =
-  location.hostname === "127.0.0.1" ||
-  location.hostname === "localhost";
-
-const API_BASE = isLocal
-  ? "http://127.0.0.1:5000/api"              // chạy local
-  : "https://giamthiwellspring.site/api";   // chạy GitHub
+const API_BASE =
+  location.protocol === "file:"
+    ? "http://127.0.0.1:5000/api"     // ✅ khi mở file HTML local
+    : `${location.origin}/api`;       // ✅ khi chạy online cùng domain
 
 let examConfirmed = false;
+
+// ===============================
+// OFFLINE QUEUE (IndexedDB)
+// ===============================
+
+let offlineDB;
+
+const dbRequest = indexedDB.open("vovinam_offline_db", 1);
+
+dbRequest.onupgradeneeded = function (event) {
+    offlineDB = event.target.result;
+    offlineDB.createObjectStore("score_queue", { keyPath: "id" });
+};
+
+dbRequest.onsuccess = function (event) {
+    offlineDB = event.target.result;
+};
+
+function saveToQueue(payload) {
+
+    if (!offlineDB) {
+        console.log("Offline DB chưa sẵn sàng");
+        return;
+    }
+
+    const tx = offlineDB.transaction("score_queue", "readwrite");
+    const store = tx.objectStore("score_queue");
+
+    store.put({
+        id: payload.batch_id,
+        data: payload,
+        created_at: Date.now()
+    });
+}
+
+function removeFromQueue(id) {
+
+    if (!offlineDB) return;
+
+    const tx = offlineDB.transaction("score_queue", "readwrite");
+    tx.objectStore("score_queue").delete(id);
+}
+
+function getAllQueue(callback) {
+    const tx = offlineDB.transaction("score_queue", "readonly");
+    const store = tx.objectStore("score_queue");
+
+    const req = store.getAll();
+    req.onsuccess = function () {
+        callback(req.result);
+    };
+}
 // ===================
 // LOAD KHÓA THI
 // ===================
@@ -365,7 +414,6 @@ async function submitScore(){
     if(mode === "draw"){
         signatureData = canvas.toDataURL();
 
-        // kiểm tra có vẽ chưa
         const blank = document.createElement("canvas");
         blank.width = canvas.width;
         blank.height = canvas.height;
@@ -382,7 +430,9 @@ async function submitScore(){
         }
         signatureData = uploadedSignature;
     }
+
     const exam = document.getElementById("examSelect").value;
+    const belt = document.getElementById("beltSelect").value;
     const rows = document.querySelectorAll("#scoreTable tbody tr");
 
     if(!exam){
@@ -390,7 +440,15 @@ async function submitScore(){
         return;
     }
 
-    const promises = [];
+    // ============================
+    // 🔥 TẠO BATCH PAYLOAD
+    // ============================
+
+    const batchId = crypto.randomUUID
+        ? crypto.randomUUID()
+        : Date.now() + "_" + Math.random();
+
+    const rowsData = [];
 
     rows.forEach(row => {
 
@@ -398,69 +456,43 @@ async function submitScore(){
         const inputs = row.querySelectorAll("input");
 
         const scores = Array.from(inputs).map(i => {
-
-            let raw = i.value.trim();
-
-            // thay dấu phẩy thành dấu chấm
-            raw = raw.replace(",", ".");
-
+            let raw = i.value.trim().replace(",", ".");
             const val = parseFloat(raw);
-
             return isNaN(val) ? 0 : val;
         });
 
-        const request = fetch(`${API_BASE}/save_score`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-                candidate_id: candidate_id,
-                exam: exam,
-                scores: scores
-            })
+        rowsData.push({
+            client_txn_id: crypto.randomUUID(),
+            candidate_id,
+            scores
         });
-
-        promises.push(request);
     });
 
-const belt = document.getElementById("beltSelect").value;
+    const payload = {
+        batch_id: batchId,
+        exam,
+        belt,
+        signature_name: name,
+        signature_image: signatureData,
+        rows: rowsData
+    };
 
-// tạo 1 log lịch sử cho "1 lần bấm gửi"
-const historyId = (crypto.randomUUID ? crypto.randomUUID() : (Date.now() + "_" + Math.random()));
-addHistory({
-  id: historyId,
-  time: new Date().toISOString(),
-  exam: exam,
-  belt: belt,
-  status: "SENDING"
-});
-renderHistory();
+    const historyId = batchId;
+
+    addHistory({
+        id: historyId,
+        time: new Date().toISOString(),
+        exam: exam,
+        belt: belt,
+        status: "SENDING"
+    });
+
+    renderHistory();
 
     try{
-        // gửi điểm
-        const resList = await Promise.all(promises);
 
-        // nếu có request nào không ok -> fail
-        const anyFail = resList.some(r => !r.ok);
-        if (anyFail) throw new Error("Có request lưu điểm bị lỗi HTTP");
+        await sendBatch(payload);
 
-        // lưu chữ ký
-        const sigRes = await fetch(`${API_BASE}/save_signature`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                exam: exam,
-                belt: belt,
-                signature_name: name,
-                signature_image: signatureData
-            })
-        });
-
-        if (!sigRes.ok) throw new Error("Lưu chữ ký thất bại (HTTP " + sigRes.status + ")");
-
-        // DONE
         updateHistory(historyId, { status: "SENT" });
         renderHistory();
 
@@ -470,16 +502,53 @@ renderHistory();
 
         loadCandidates();
         alert("Đã lưu điểm & ký xác nhận thành công");
+
         openTab("print");
         loadPrintPdf();
+
     }catch(error){
+
         console.error(error);
 
-        updateHistory(historyId, { status: "FAILED", error: String(error) });
+        saveToQueue(payload);   // 🔥 LƯU OFFLINE QUEUE
+
+        updateHistory(historyId, { status: "FAILED" });
         renderHistory();
 
-        alert("Có lỗi khi lưu điểm");
+        alert("Server offline. Đã lưu vào hàng chờ.");
     }
+}
+
+async function sendBatch(payload) {
+
+    for (let item of payload.rows) {
+
+        const res = await fetch(`${API_BASE}/save_score`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                client_txn_id: item.client_txn_id,
+                candidate_id: item.candidate_id,
+                exam: payload.exam,
+                scores: item.scores
+            })
+        });
+
+        if (!res.ok) throw new Error("Score failed");
+    }
+
+    const sigRes = await fetch(`${API_BASE}/save_signature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            exam: payload.exam,
+            belt: payload.belt,
+            signature_name: payload.signature_name,
+            signature_image: payload.signature_image
+        })
+    });
+
+    if (!sigRes.ok) throw new Error("Signature failed");
 }
 
 function loadCandidates(){
@@ -1071,6 +1140,38 @@ function loadPrintPdf() {
   document.getElementById("printHint").textContent = `${exam} - ${belt}`;
 }
 
+// ===============================
+// AUTO RETRY
+// ===============================
+
+setInterval(() => {
+
+    if (!offlineDB) return;
+
+    getAllQueue(async (items) => {
+
+        for (let item of items) {
+
+            try {
+                await sendBatch(item.data);
+
+                removeFromQueue(item.id);
+
+                // 🔥 cập nhật lại History
+                updateHistory(item.id, { status: "SENT" });
+                renderHistory();
+
+                console.log("Đã gửi lại thành công batch:", item.id);
+
+            } catch (err) {
+                console.log("Vẫn chưa gửi được:", item.id);
+            }
+
+        }
+
+    });
+
+}, 20000);
 </script>
 
 
