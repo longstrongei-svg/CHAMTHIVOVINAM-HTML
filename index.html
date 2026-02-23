@@ -172,6 +172,13 @@ table th, table td{
         <select id="examSelect">
         </select>
         <button class="btn-primary" onclick="confirmExam()">XÁC NHẬN</button>
+        <hr style="margin:16px 0;">
+        <h3>Chế độ Offline (khi server tắt)</h3>
+
+        <input type="file" id="offlineFile" accept="application/json">
+        <button class="btn-warning" onclick="importOfflineJson()">Nạp dữ liệu Offline</button>
+
+        <div id="offlineInfo" style="margin-top:10px; opacity:.8;"></div>
         <div id="welcomeBox" class="success"></div>
     </div>
 
@@ -243,6 +250,7 @@ table th, table td{
 
     <div style="display:flex; gap:10px; align-items:center; margin:10px 0;">
         <button class="btn-primary" onclick="renderHistory()">Tải lại</button>
+        <button class="btn-success" onclick="manualSync()">Sync ngay</button>
         <button class="btn-warning" onclick="clearHistory()">Xóa lịch sử máy này</button>
         <span id="historyStatus" style="opacity:.7;"></span>
     </div>
@@ -287,13 +295,124 @@ table th, table td{
 let API_BASE;
 
 if (location.protocol === "file:") {
-    API_BASE = "http://127.0.0.1:5000/api";
+    API_BASE = "http://127.0.0.1:5001/api";
 } else {
     // dùng domain server chính
     API_BASE = "https://chamthivovinam.giamthiwellspring.site/api";
 }
 let examConfirmed = false;
+let OFFLINE_DATA = null;
 
+function offlineKey() {
+  return "OFFLINE_EXPORTED_DATA::v1";
+}
+
+async function manualSync(){
+
+    if(isOfflineMode()){
+        alert("Đang ở chế độ OFFLINE.\nHãy đăng nhập lại ONLINE để sync.");
+        return;
+    }
+
+    if (!offlineDB) {
+        alert("Offline DB chưa sẵn sàng");
+        return;
+    }
+
+    getAllQueue(async (items) => {
+
+        if(items.length === 0){
+            alert("Không có dữ liệu cần sync.");
+            return;
+        }
+
+        for (let item of items) {
+
+            try {
+                await sendBatch(item.data);
+
+                removeFromQueue(item.id);
+
+                updateHistory(item.id, { status: "SENT" });
+
+            } catch (err) {
+                console.log("Sync thất bại:", item.id);
+            }
+        }
+
+        renderHistory();
+        alert("Sync hoàn tất.");
+    });
+}
+
+function updateNetworkStatus(){
+    const el = document.getElementById("netStatus");
+
+    if(isOfflineMode()){
+        el.innerHTML = "🔴 OFFLINE MODE";
+        el.style.color = "yellow";
+    } else {
+        el.innerHTML = "🟢 ONLINE";
+        el.style.color = "lightgreen";
+    }
+}
+
+window.addEventListener("load", updateNetworkStatus);
+
+function saveOfflineData(data){
+  OFFLINE_DATA = data;
+  localStorage.setItem(offlineKey(), JSON.stringify(data));
+  document.getElementById("offlineInfo").innerHTML =
+    `✅ Đã nạp Offline: <b>${data.exam}</b> (${data.belts?.length || 0} cấp đai)`;
+}
+
+function loadOfflineDataFromStorage(){
+  try{
+    const raw = localStorage.getItem(offlineKey());
+    if(!raw) return null;
+    OFFLINE_DATA = JSON.parse(raw);
+    return OFFLINE_DATA;
+  }catch{
+    return null;
+  }
+}
+
+function importOfflineJson(){
+  const f = document.getElementById("offlineFile").files[0];
+  if(!f){
+    alert("Chọn file JSON export trước!");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+
+      // validate tối thiểu
+      if(!data.exam || !data.belts || !data.candidates){
+        alert("File JSON không đúng format!");
+        return;
+      }
+
+      saveOfflineData(data);
+
+      // đổ danh sách examSelect luôn theo offline
+      const examSelect = document.getElementById("examSelect");
+      examSelect.innerHTML = `<option value="${data.exam}">${data.exam}</option>`;
+      examSelect.value = data.exam;
+
+      // đổ belts
+      const beltSelect = document.getElementById("beltSelect");
+      beltSelect.innerHTML = "";
+      data.belts.forEach(b => beltSelect.innerHTML += `<option value="${b}">${b}</option>`);
+
+      alert("✅ Nạp dữ liệu offline xong. Bạn có thể XÁC NHẬN và chấm.");
+    }catch(e){
+      alert("JSON lỗi: " + e.message);
+    }
+  };
+  reader.readAsText(f, "utf-8");
+}
 // ===============================
 // OFFLINE QUEUE (IndexedDB)
 // ===============================
@@ -349,21 +468,33 @@ function getAllQueue(callback) {
 // LOAD KHÓA THI
 // ===================
 function loadExams(){
-    fetch(API_BASE + "/exams")
+
+  if(isOfflineMode()){
+      const data = loadOfflineDataFromStorage();
+      if(!data){
+          alert("Chưa có dữ liệu Offline");
+          return;
+      }
+
+      const select = document.getElementById("examSelect");
+      select.innerHTML = `<option value="${data.exam}">${data.exam}</option>`;
+      select.value = data.exam;
+
+      loadBelts();
+      return;
+  }
+
+  fetch(API_BASE + "/exams")
     .then(res => res.json())
     .then(data => {
-        const select = document.getElementById("examSelect");
-        select.innerHTML = "";
-
-        data.forEach(exam=>{
-            select.innerHTML += `<option value="${exam}">${exam}</option>`;
-        });
-
-        loadBelts();
+      const select = document.getElementById("examSelect");
+      select.innerHTML = "";
+      data.forEach(exam=> select.innerHTML += `<option value="${exam}">${exam}</option>`);
+      loadBelts();
     })
     .catch(err => {
-        alert("Không kết nối được server!");
-        console.log(err);
+      alert("Không kết nối được server!");
+      console.log(err);
     });
 }
 
@@ -371,19 +502,26 @@ function loadExams(){
 // LOAD CẤP ĐAI
 // ===================
 function loadBelts(){
-    const exam = document.getElementById("examSelect").value;
+  const exam = document.getElementById("examSelect").value;
 
-    fetch(API_BASE + "/belts?exam=" + encodeURIComponent(exam))
+  if(isOfflineMode()){
+    const data = loadOfflineDataFromStorage();
+    const select = document.getElementById("beltSelect");
+    select.innerHTML = "";
+    data.belts.forEach(b => select.innerHTML += `<option value="${b}">${b}</option>`);
+    loadExamHeaders();
+    loadCandidates();
+    return;
+  }
+
+  fetch(API_BASE + "/belts?exam=" + encodeURIComponent(exam))
     .then(res => res.json())
     .then(data => {
-        const select = document.getElementById("beltSelect");
-        select.innerHTML = "";
-
-        data.forEach(belt=>{
-            select.innerHTML += `<option value="${belt}">${belt}</option>`;
-        });
-        loadExamHeaders();
-        loadCandidates();
+      const select = document.getElementById("beltSelect");
+      select.innerHTML = "";
+      data.forEach(belt=> select.innerHTML += `<option value="${belt}">${belt}</option>`);
+      loadExamHeaders();
+      loadCandidates();
     });
 }
 
@@ -391,18 +529,25 @@ function loadBelts(){
 // LOAD THÍ SINH
 // ===================
 function loadExamHeaders(){
-    const belt = document.getElementById("beltSelect").value;
+  const belt = document.getElementById("beltSelect").value;
 
-    fetch(`${API_BASE}/exam_contents?belt=${encodeURIComponent(belt)}`)
+  if(isOfflineMode()){
+    const data = loadOfflineDataFromStorage();
+    const contents = data.contents_by_belt?.[belt] || ["Lý thuyết","Đòn căn bản","Chiến lược","Khóa gỡ","Giao đấu","Võ lực"];
+    const headers = document.querySelectorAll("#scoreTable thead th");
+    for(let i=0; i<6; i++){
+      headers[i+4].innerText = contents[i] || "";
+    }
+    return;
+  }
+
+  fetch(`${API_BASE}/exam_contents?belt=${encodeURIComponent(belt)}`)
     .then(res => res.json())
     .then(contents => {
-
-        const headers = document.querySelectorAll("#scoreTable thead th");
-
-        // ✅ 6 cột nội dung thi bắt đầu từ cột index 4 (sau Đơn vị)
-        for(let i=0; i<6; i++){
-            headers[i+4].innerText = contents[i];
-        }
+      const headers = document.querySelectorAll("#scoreTable thead th");
+      for(let i=0; i<6; i++){
+        headers[i+4].innerText = contents[i];
+      }
     });
 }
 
@@ -559,127 +704,102 @@ async function sendBatch(payload) {
 }
 
 function loadCandidates(){
+  const exam = document.getElementById("examSelect").value;
+  const belt = document.getElementById("beltSelect").value;
 
-    const exam = document.getElementById("examSelect").value;
-    const belt = document.getElementById("beltSelect").value;
-    if(!examConfirmed){
-        alert("VUI LÒNG XÁC NHẬN KHÓA THI");
-        return;
-    }
-    if(!exam || !belt) return;
+  if(!examConfirmed){
+    alert("VUI LÒNG XÁC NHẬN KHÓA THI");
+    return;
+  }
+  if(!exam || !belt) return;
 
-    fetch(`${API_BASE}/candidates?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}`)
+  if(isOfflineMode()){
+    const data = loadOfflineDataFromStorage();
+    const list = (data.candidates?.[belt] || []);
+    renderCandidateRows(list);
+    return;
+  }
+
+  fetch(`${API_BASE}/candidates?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}`)
     .then(res => res.json())
-    .then(data => {
-
-        const tbody = document.querySelector("#scoreTable tbody");
-        tbody.innerHTML = "";
-
-        data.forEach((c, index) => {
-
-            const row = `
-                <tr data-id="${c.id}">
-                    <td>${index + 1}</td>
-                    <td>${c.name}</td>
-                    <td>${c.birth_year}</td>
-                    <td>${c.unit ?? ""}</td>
-
-                    ${c.scores.map(s => `
-                        <td>
-                        <input
-                            type="text"
-                            inputmode="decimal"
-                            pattern="[0-9]*[.,]?[0-9]*"
-                            autocomplete="off"
-                            autocapitalize="off"
-                            spellcheck="false"
-                            value="${s ?? ''}"
-                        >
-                        </td>
-                    `).join("")}
-
-                    <td class="total-cell"><b>${c.total ? c.total : ""}</b></td>
-                    <td>${c.rank ? c.rank : ""}</td>
-                    <td>${c.result ? c.result : ""}</td>
-                </tr>
-            `;
-
-            tbody.innerHTML += row;
-        });
-        restoreDraft();
-        // ===============================
-        // 🔥 VALIDATE + REALTIME TOTAL
-        // ===============================
-
-        const rows = document.querySelectorAll("#scoreTable tbody tr");
-
-        rows.forEach(row => {
-
-            const inputs = row.querySelectorAll("input");
-            const totalCell = row.querySelector(".total-cell");
-
-            inputs.forEach(input => {
-
-                // CHẶN KÝ TỰ KHÔNG HỢP LỆ
-                input.addEventListener("input", function(){
-
-                    let val = this.value;
-
-                    // chỉ cho số + . + ,
-                    val = val.replace(/[^0-9.,]/g, "");
-
-                    // đổi , thành .
-                    val = val.replace(",", ".");
-
-                    this.value = val;
-
-                    calculateTotal();
-                    saveDraft();
-                });
-
-                // CHUẨN HÓA & GIỚI HẠN
-                input.addEventListener("blur", function(){
-
-                    let val = parseFloat(this.value.replace(",", "."));
-
-                    if(isNaN(val)){
-                        this.value = "";
-                        calculateTotal();
-                        return;
-                    }
-
-                    if(val < 0) val = 0;
-                    if(val > 10) val = 10;
-
-                    this.value = val.toFixed(1);
-
-                    calculateTotal();
-                    saveDraft();
-                });
-
-            });
-
-            function calculateTotal(){
-
-                let sum = 0;
-
-                inputs.forEach(i=>{
-                    let v = parseFloat(i.value);
-                    if(!isNaN(v)) sum += v;
-                });
-
-                totalCell.innerHTML = "<b>" + sum.toFixed(1) + "</b>";
-            }
-
-        });
-
-    })
+    .then(list => renderCandidateRows(list))
     .catch(err => {
-        console.error(err);
-        alert("Không load được danh sách thí sinh");
+      console.error(err);
+      alert("Không load được danh sách thí sinh");
     });
 }
 
+function renderCandidateRows(list){
+  const tbody = document.querySelector("#scoreTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach((c, index) => {
+    const row = `
+      <tr data-id="${c.id}">
+        <td>${index + 1}</td>
+        <td>${c.name}</td>
+        <td>${c.birth_year}</td>
+        <td>${c.unit ?? ""}</td>
+
+        ${(c.scores || ["","","","","",""]).map(s => `
+          <td><input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*"
+            autocomplete="off" autocapitalize="off" spellcheck="false" value="${s ?? ''}"></td>
+        `).join("")}
+
+        <td class="total-cell"><b>${c.total ? c.total : ""}</b></td>
+        <td>${c.rank ? c.rank : ""}</td>
+        <td>${c.result ? c.result : ""}</td>
+      </tr>
+    `;
+    tbody.innerHTML += row;
+  });
+
+  restoreDraft();
+  attachScoreInputHandlers(); // tách đoạn validate/tính tổng ra hàm riêng
+}
+
+function attachScoreInputHandlers(){
+  const rows = document.querySelectorAll("#scoreTable tbody tr");
+
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll("input");
+    const totalCell = row.querySelector(".total-cell");
+
+    inputs.forEach(input => {
+      input.addEventListener("input", function(){
+        let val = this.value;
+        val = val.replace(/[^0-9.,]/g, "");
+        val = val.replace(",", ".");
+        this.value = val;
+        calculateTotal();
+        saveDraft();
+      });
+
+      input.addEventListener("blur", function(){
+        let val = parseFloat(this.value.replace(",", "."));
+        if(isNaN(val)){
+          this.value = "";
+          calculateTotal();
+          return;
+        }
+        if(val < 0) val = 0;
+        if(val > 10) val = 10;
+        this.value = val.toFixed(1);
+        calculateTotal();
+        saveDraft();
+      });
+    });
+
+    function calculateTotal(){
+      let sum = 0;
+      inputs.forEach(i=>{
+        let v = parseFloat(i.value);
+        if(!isNaN(v)) sum += v;
+      });
+      totalCell.innerHTML = "<b>" + sum.toFixed(1) + "</b>";
+    }
+  });
+}
 // ===================
 // EVENT
 // ===================
@@ -708,6 +828,11 @@ async function login(){
   const judge = document.getElementById("loginJudge").value;
   const pass  = document.getElementById("loginPassword").value;
 
+  if(!judge){
+    alert("Chọn giám khảo");
+    return;
+  }
+
   try{
     const res = await fetch(API_BASE + "/login", {
       method: "POST",
@@ -715,11 +840,8 @@ async function login(){
       body: JSON.stringify({ name: judge, password: pass })
     });
 
-    // Nếu server trả không phải 2xx
     if(!res.ok){
-      const txt = await res.text();
-      alert("Login lỗi HTTP " + res.status + "\n" + txt.slice(0,200));
-      return;
+      throw new Error("HTTP " + res.status);
     }
 
     const data = await res.json();
@@ -734,17 +856,48 @@ async function login(){
       return;
     }
 
+    // ✅ login online
     localStorage.setItem("judge", judge);
+    localStorage.setItem("LOGIN_MODE", "ONLINE");
+
     document.getElementById("loginPage").style.display="none";
     document.getElementById("dashboard").style.display="block";
     document.getElementById("judgeName").innerText = judge;
 
     loadExams();
     renderHistory();
+    return;
 
   }catch(err){
-    console.error(err);
-    alert("Không gọi được API login.\n" + (err?.message || err));
+
+    // ✅ login offline fallback
+    const data = loadOfflineDataFromStorage();
+    if(!data){
+      alert("❌ Server đang tắt và máy này chưa có dữ liệu Offline.\nHãy nạp file JSON export trước.");
+      return;
+    }
+
+    const ok = confirm("Server đang OFFLINE.\nBạn có muốn vào chế độ OFFLINE để chấm không?");
+    if(!ok) return;
+
+    localStorage.setItem("judge", judge);
+    localStorage.setItem("LOGIN_MODE", "OFFLINE");
+
+    document.getElementById("loginPage").style.display="none";
+    document.getElementById("dashboard").style.display="block";
+    document.getElementById("judgeName").innerText = judge + " (OFFLINE)";
+
+    // nạp data offline vào UI
+    const examSelect = document.getElementById("examSelect");
+    examSelect.innerHTML = `<option value="${data.exam}">${data.exam}</option>`;
+    examSelect.value = data.exam;
+
+    const beltSelect = document.getElementById("beltSelect");
+    beltSelect.innerHTML = "";
+    data.belts.forEach(b => beltSelect.innerHTML += `<option value="${b}">${b}</option>`);
+
+    alert("✅ Đã vào chế độ OFFLINE.\nHãy bấm XÁC NHẬN khóa thi rồi chấm.");
+    renderHistory();
   }
 }
 
@@ -812,7 +965,10 @@ function openTab(tabName){
     document.getElementById(tabName)
         .classList.add("tab-active");
     // ✅ thêm dòng này
-    if (tabName === "history") renderHistory();
+    if (tabName === "print" && isOfflineMode()) {
+        alert("Chế độ OFFLINE không thể in PDF.\nVui lòng sync khi có mạng.");
+        return;
+    }
 }
 
 function confirmExam(){
@@ -1161,6 +1317,7 @@ function loadPrintPdf() {
 
 setInterval(() => {
 
+    if (isOfflineMode()) return;
     if (!offlineDB) return;
 
     getAllQueue(async (items) => {
@@ -1187,6 +1344,12 @@ setInterval(() => {
     });
 
 }, 20000);
+
+function isOfflineMode(){
+  return (localStorage.getItem("LOGIN_MODE") === "OFFLINE");
+}
+
+
 </script>
 
 
