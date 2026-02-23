@@ -280,19 +280,17 @@ table th, table td{
 
 <script>
 
-const LOCAL_API = "http://127.0.0.1:5000/api";       // mở file local trên máy server
-const LAN_API   = "http://192.168.1.5:5000/api";     // IP máy chạy CHAMTHI.py
+// =============================
+// API BASE CHUẨN PRODUCTION
+// =============================
 
 let API_BASE;
 
 if (location.protocol === "file:") {
-    API_BASE = LOCAL_API;
-} 
-else if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    API_BASE = LOCAL_API;
-}
-else {
-    API_BASE = LAN_API;
+    API_BASE = "http://127.0.0.1:5000/api";
+} else {
+    // dùng domain server chính
+    API_BASE = "https://chamthivovinam.giamthiwellspring.site/api";
 }
 let examConfirmed = false;
 
