@@ -32,6 +32,12 @@ header{
     box-shadow:0 4px 15px rgba(0,0,0,0.08);
 }
 
+input.score-low {
+    color: red;
+    font-weight: bold;
+    background: #fff5f5;
+}
+
 button{
     padding:8px 15px;
     border:none;
@@ -686,10 +692,40 @@ async function submitScore(){
     // 🔥 TẠO BATCH PAYLOAD
     // ============================
 
-    const batchId = crypto.randomUUID
-        ? crypto.randomUUID()
-        : Date.now() + "_" + Math.random();
+    // MỚI – thêm đoạn cảnh báo TRƯỚC dòng batchId
+    // 🔥 Kiểm tra điểm thấp trước khi gửi
+    const lowScoreWarnings = [];
 
+    document.querySelectorAll("#scoreTable tbody tr").forEach(row => {
+        const name = row.cells[1].textContent.trim();
+        const inputs = row.querySelectorAll("input");
+        const lowFields = [];
+
+        inputs.forEach((inp, idx) => {
+            const val = parseFloat(inp.value);
+            if (!isNaN(val) && val <= 4.5) {
+                const header = document.querySelectorAll("#scoreTable thead th")[idx + 4].textContent;
+                lowFields.push(`${header}: ${val}`);
+            }
+        });
+
+        if (lowFields.length > 0) {
+            lowScoreWarnings.push(`• ${name}: ${lowFields.join(", ")}`);
+        }
+    });
+
+    if (lowScoreWarnings.length > 0) {
+        const proceed = confirm(
+            "⚠️ CẢNH BÁO: Có thí sinh điểm thấp (≤ 4.5):\n\n" +
+            lowScoreWarnings.join("\n") +
+            "\n\nBạn có chắc chắn muốn gửi điểm không?"
+        );
+        if (!proceed) return;
+    }
+
+    const batchId = crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now() + "_" + Math.random();
     const rowsData = [];
 
     rows.forEach(row => {
@@ -917,28 +953,47 @@ function attachScoreInputHandlers(){
     const totalCell = row.querySelector(".total-cell");
 
     inputs.forEach(input => {
-      input.addEventListener("input", function(){
-        let val = this.value;
-        val = val.replace(/[^0-9.,]/g, "");
-        val = val.replace(",", ".");
-        this.value = val;
-        calculateTotal();
-        saveDraft();
-      });
+        // MỚI
+        input.addEventListener("input", function(){
+            let val = this.value;
+            val = val.replace(/[^0-9.,]/g, "");
+            val = val.replace(",", ".");
+            this.value = val;
 
-      input.addEventListener("blur", function(){
-        let val = parseFloat(this.value.replace(",", "."));
-        if(isNaN(val)){
-          this.value = "";
-          calculateTotal();
-          return;
-        }
-        if(val < 0) val = 0;
-        if(val > 10) val = 10;
-        this.value = val.toFixed(1);
-        calculateTotal();
-        saveDraft();
-      });
+            // 🔥 tô màu realtime
+            const num = parseFloat(val);
+            if(!isNaN(num) && num <= 4.5){
+                this.classList.add("score-low");
+            } else {
+                this.classList.remove("score-low");
+            }
+
+            calculateTotal();
+            saveDraft();
+        });
+
+        input.addEventListener("blur", function(){
+            let val = parseFloat(this.value.replace(",", "."));
+            if(isNaN(val)){
+                this.value = "";
+                this.classList.remove("score-low");
+                calculateTotal();
+                return;
+            }
+            if(val < 0) val = 0;
+            if(val > 10) val = 10;
+            this.value = val.toFixed(1);
+
+            // 🔥 tô màu sau blur
+            if(val <= 4.5){
+                this.classList.add("score-low");
+            } else {
+                this.classList.remove("score-low");
+            }
+
+            calculateTotal();
+            saveDraft();
+        });
     });
 
     function calculateTotal(){
@@ -1245,9 +1300,18 @@ function restoreDraft(){
 
         const inputs = row.querySelectorAll("input");
 
+        // MỚI
         item.scores.forEach((val, index)=>{
             if(inputs[index]){
                 inputs[index].value = val;
+
+                // 🔥 tô màu khi restore
+                const num = parseFloat(val);
+                if(!isNaN(num) && num <= 4.5){
+                    inputs[index].classList.add("score-low");
+                } else {
+                    inputs[index].classList.remove("score-low");
+                }
             }
         });
 
