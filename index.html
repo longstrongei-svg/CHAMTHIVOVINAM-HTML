@@ -1102,6 +1102,7 @@ function logout(){
     location.reload();
 }
 
+// MỚI
 function openTab(tabName){
 
     if ((tabName === "score" || tabName === "print") && !examConfirmed) {
@@ -1116,10 +1117,15 @@ function openTab(tabName){
 
     document.getElementById(tabName)
         .classList.add("tab-active");
-    // ✅ thêm dòng này
+
     if (tabName === "print" && isOfflineMode()) {
         alert("Chế độ OFFLINE không thể in PDF.\nVui lòng sync khi có mạng.");
         return;
+    }
+
+    // 🔥 THÊM DÒNG NÀY: tự động reload trạng thái chữ ký khi vào tab score
+    if (tabName === "score" && examConfirmed) {
+        loadSignatureStatus();
     }
 }
 
@@ -1531,3 +1537,4 @@ function isOfflineMode(){
 
 </body>
 </html>
+
