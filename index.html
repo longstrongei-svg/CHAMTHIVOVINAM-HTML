@@ -215,7 +215,19 @@ table th, table td{
             <tbody></tbody>
         </table>
         </div>
+
         <h4>Xác nhận & Ký tên</h4>
+
+        <!-- 🔥 BOX TRẠNG THÁI CHỮ KÝ -->
+        <div id="signatureStatusBox"
+            style="
+                border-radius:8px;
+                padding:12px;
+                margin-bottom:15px;
+                font-size:14px;
+                background:#f8f9fa;
+            ">
+        </div>
 
         <label>Họ tên Giám khảo</label>
         <input type="text" id="signatureName" placeholder="Nhập họ tên ký xác nhận">
@@ -344,6 +356,82 @@ async function manualSync(){
         alert("Sync hoàn tất.");
     });
 }
+
+async function loadSignatureStatus(){
+
+    const exam = document.getElementById("examSelect").value;
+    const belt = document.getElementById("beltSelect").value;
+
+    if(!exam || !belt) return;
+
+    try{
+        const res = await fetch(
+            `${API_BASE}/signature_status?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}`
+        );
+
+        if(!res.ok) return;
+
+        const data = await res.json();
+
+        const judges = data.judges_signed || [];
+        const chief = data.chief_signed;
+
+        const box = document.getElementById("signatureStatusBox");
+
+        let statusHTML = "";
+        let bgColor = "#f8f9fa";
+        let borderColor = "#ccc";
+
+        // ===============================
+        // TRẠNG THÁI LOGIC
+        // ===============================
+
+        if(judges.length > 0 && chief){
+            // 🟢 Hoàn tất
+            bgColor = "#e6f4ea";
+            borderColor = "#28a745";
+            statusHTML = `
+                <b>🟢 ĐÃ HOÀN TẤT KÝ XÁC NHẬN</b><br>
+                Giám khảo: ${judges.join(", ")}<br>
+                Chánh chủ khảo: ${chief}
+            `;
+        }
+        else if(judges.length > 0 && !chief){
+            // 🟡 Chờ CCK
+            bgColor = "#fff3cd";
+            borderColor = "#ffc107";
+            statusHTML = `
+                <b>🟡 ĐANG CHỜ CHÁNH CHỦ KHẢO KÝ</b><br>
+                Giám khảo đã ký: ${judges.join(", ")}
+            `;
+        }
+        else if(judges.length === 0 && chief){
+            // 🔵 CCK ký một mình
+            bgColor = "#e7f1ff";
+            borderColor = "#0d6efd";
+            statusHTML = `
+                <b>🔵 CCK ĐÃ KÝ (CHẤM TRỰC TIẾP)</b><br>
+                Chánh chủ khảo: ${chief}
+            `;
+        }
+        else{
+            // 🔴 Chưa ai ký
+            bgColor = "#fdecea";
+            borderColor = "#dc3545";
+            statusHTML = `
+                <b>🔴 CHƯA CÓ CHỮ KÝ XÁC NHẬN</b>
+            `;
+        }
+
+        box.style.background = bgColor;
+        box.style.borderLeft = `5px solid ${borderColor}`;
+        box.innerHTML = statusHTML;
+
+    }catch(e){
+        console.log("Không load được trạng thái ký");
+    }
+}
+
 
 function updateNetworkStatus(){
     const el = document.getElementById("netStatus");
@@ -511,6 +599,7 @@ function loadBelts(){
     data.belts.forEach(b => select.innerHTML += `<option value="${b}">${b}</option>`);
     loadExamHeaders();
     loadCandidates();
+    loadSignatureStatus();
     return;
   }
 
@@ -522,6 +611,7 @@ function loadBelts(){
       data.forEach(belt=> select.innerHTML += `<option value="${belt}">${belt}</option>`);
       loadExamHeaders();
       loadCandidates();
+      loadSignatureStatus();
     });
 }
 
@@ -645,6 +735,7 @@ async function submitScore(){
 
         await sendBatch(payload);
 
+        loadSignatureStatus();
         updateHistory(historyId, { status: "SENT" });
         renderHistory();
 
@@ -658,20 +749,35 @@ async function submitScore(){
         openTab("print");
         loadPrintPdf();
 
-    }catch(error){
+    } catch (error) {
 
-        console.error(error);
+        console.error("Submit error:", error);
 
-        saveToQueue(payload);   // 🔥 LƯU OFFLINE QUEUE
+        // 🔎 Nếu thật sự mất mạng
+        if (!navigator.onLine) {
 
+            saveToQueue(payload);
+
+            updateHistory(historyId, { status: "FAILED" });
+            renderHistory();
+
+            alert("Mất kết nối Internet. Đã lưu vào hàng chờ.");
+            return;
+        }
+
+        // 🔎 Nếu server trả lỗi (400, 500...)
         updateHistory(historyId, { status: "FAILED" });
         renderHistory();
 
-        alert("Server offline. Đã lưu vào hàng chờ.");
+        alert("Gửi thất bại:\n" + error.message);
     }
 }
 
 async function sendBatch(payload) {
+
+    // =============================
+    // 1️⃣ GỬI ĐIỂM TỪNG THÍ SINH
+    // =============================
 
     for (let item of payload.rows) {
 
@@ -686,8 +792,41 @@ async function sendBatch(payload) {
             })
         });
 
-        if (!res.ok) throw new Error("Score failed");
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error("Lỗi lưu điểm: " + text);
+        }
     }
+
+    // =============================
+    // 2️⃣ XÁC ĐỊNH ROLE (judge/chief)
+    // =============================
+
+    const judgeName = localStorage.getItem("judge");
+    let role = "judge";
+
+    try {
+
+        const assignRes = await fetch(
+            `${API_BASE}/get_assignment?exam=${encodeURIComponent(payload.exam)}`
+        );
+
+        if (assignRes.ok) {
+
+            const assignData = await assignRes.json();
+
+            if (assignData.chief === judgeName) {
+                role = "chief";
+            }
+        }
+
+    } catch (err) {
+        console.log("Không kiểm tra được phân công, mặc định judge");
+    }
+
+    // =============================
+    // 3️⃣ GỬI CHỮ KÝ
+    // =============================
 
     const sigRes = await fetch(`${API_BASE}/save_signature`, {
         method: "POST",
@@ -695,12 +834,24 @@ async function sendBatch(payload) {
         body: JSON.stringify({
             exam: payload.exam,
             belt: payload.belt,
-            signature_name: payload.signature_name,
+            signer_name: payload.signature_name,   // đúng key backend
+            role: role,                            // 🔥 bắt buộc
             signature_image: payload.signature_image
         })
     });
 
-    if (!sigRes.ok) throw new Error("Signature failed");
+    if (!sigRes.ok) {
+        const text = await sigRes.text();
+        throw new Error("Lỗi lưu chữ ký: " + text);
+    }
+
+    const sigData = await sigRes.json();
+
+    if (sigData.status !== "success" && sigData.status !== "duplicate") {
+        throw new Error("Lưu chữ ký thất bại: " + JSON.stringify(sigData));
+    }
+
+    return true;
 }
 
 function loadCandidates(){
@@ -818,6 +969,7 @@ document.getElementById("beltSelect")
 .addEventListener("change", function(){
     loadExamHeaders();
     loadCandidates();
+    loadSignatureStatus();   // 👈 thêm dòng này
 });
 
 
@@ -971,7 +1123,7 @@ function openTab(tabName){
     }
 }
 
-function confirmExam(){
+async function confirmExam(){
 
     const exam = document.getElementById("examSelect").value;
     const judge = localStorage.getItem("judge");
@@ -981,15 +1133,39 @@ function confirmExam(){
         return;
     }
 
-    examConfirmed = true;
+    try{
+        const res = await fetch(
+            `${API_BASE}/get_assignment?exam=${encodeURIComponent(exam)}`
+        );
 
-    let role = "Giám khảo";
-    if(judge && judge.toLowerCase() === "admin"){
-        role = "Chánh Chủ khảo";
+        if(!res.ok){
+            alert("Khóa thi chưa được phân công.");
+            return;
+        }
+
+        const data = await res.json();
+
+        let role = null;
+
+        if(data.chief === judge){
+            role = "Chánh Chủ khảo";
+        }
+        else if(data.judges.includes(judge)){
+            role = "Giám khảo";
+        }
+        else{
+            alert("Bạn không được phân công cho khóa thi này.");
+            return;
+        }
+
+        examConfirmed = true;
+
+        document.getElementById("welcomeBox").innerHTML =
+            `Bạn được phân công làm <b>${role}</b> của khóa thi: <b>${exam}</b>`;
+        loadSignatureStatus();
+    }catch(err){
+        alert("Không kiểm tra được phân công.");
     }
-
-    document.getElementById("welcomeBox").innerHTML =
-        `Bạn đã được phân công làm <b>${role}</b> của khóa thi: <b>${exam}</b>`;
 }
 
 function resetPassword(){
