@@ -235,8 +235,20 @@ table th, table td{
             ">
         </div>
 
-        <label>Họ tên Giám khảo</label>
-        <input type="text" id="signatureName" placeholder="Nhập họ tên ký xác nhận">
+        <!-- MỚI - ẩn đi, thay bằng hiển thị tên đang đăng nhập -->
+        <div style="
+            background:#e7f1ff;
+            border-left:4px solid #0d6efd;
+            padding:10px 14px;
+            border-radius:6px;
+            margin-bottom:15px;
+            font-weight:bold;
+        ">
+            ✍️ Ký xác nhận với tư cách: <span id="signerDisplayName" style="color:#0d6efd;"></span>
+            &nbsp;|&nbsp;
+            <span id="signerRoleDisplay" style="color:#198754;"></span>
+        </div>
+        <input type="hidden" id="signatureName">
 
         <label>Chọn chế độ ký</label>
         <select id="signatureMode" onchange="switchSignatureMode()">
@@ -649,11 +661,10 @@ function loadExamHeaders(){
 
 async function submitScore(){
 
-    const name = document.getElementById("signatureName").value.trim();
-    const mode = document.getElementById("signatureMode").value;
+    const name = localStorage.getItem("judge");
 
     if(!name){
-        alert("Vui lòng nhập họ tên ký xác nhận");
+        alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại");
         return;
     }
 
@@ -1253,10 +1264,49 @@ function openTab(tabName){
 
     // 🔥 THÊM DÒNG NÀY: tự động reload trạng thái chữ ký khi vào tab score
     if (tabName === "score" && examConfirmed) {
-        loadCandidates(true);   // silent reload 
+        loadCandidates(true);
         loadSignatureStatus();
+        updateSignerDisplay();  // 🔥 thêm dòng này
     }
 }
+
+async function updateSignerDisplay(){
+    const judge = localStorage.getItem("judge");
+    if(!judge) return;
+
+    // Cập nhật input hidden
+    document.getElementById("signatureName").value = judge;
+    document.getElementById("signerDisplayName").textContent = judge;
+
+    // Kiểm tra role từ server
+    const exam = document.getElementById("examSelect").value;
+    if(!exam) return;
+
+    try{
+        const res = await fetch(`${API_BASE}/get_assignment?exam=${encodeURIComponent(exam)}`);
+        if(!res.ok) return;
+
+        const data = await res.json();
+
+        let roleText = "";
+        if(data.chief === judge){
+            roleText = "CHÁNH CHỦ KHẢO";
+            document.getElementById("signerRoleDisplay").style.color = "#dc3545";
+        } else if(data.judges.includes(judge)){
+            roleText = "GIÁM KHẢO";
+            document.getElementById("signerRoleDisplay").style.color = "#198754";
+        } else {
+            roleText = "⚠️ Chưa được phân công";
+            document.getElementById("signerRoleDisplay").style.color = "orange";
+        }
+
+        document.getElementById("signerRoleDisplay").textContent = roleText;
+
+    }catch(e){
+        console.log("Không load được phân công");
+    }
+}
+
 
 async function confirmExam(){
 
