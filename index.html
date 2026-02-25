@@ -668,6 +668,8 @@ async function submitScore(){
         return;
     }
 
+    const mode = document.getElementById("signatureMode").value; // 🔥 THÊM DÒNG NÀY
+
     let signatureData = null;
 
     if(mode === "draw"){
@@ -1451,6 +1453,7 @@ function restoreDraft(){
     });
 }
 
+// MỚI
 function switchSignatureMode(){
     const mode = document.getElementById("signatureMode").value;
 
@@ -1459,6 +1462,15 @@ function switchSignatureMode(){
 
     document.getElementById("uploadArea").style.display =
         mode === "upload" ? "block" : "none";
+
+    // 🔥 Reset state khi chuyển mode
+    if(mode === "draw"){
+        uploadedSignature = null;
+        document.getElementById("previewBox").innerHTML = "";
+        document.getElementById("signatureUpload").value = "";
+    } else {
+        clearCanvas();
+    }
 }
 
 const canvas = document.getElementById("signatureCanvas");
