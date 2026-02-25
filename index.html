@@ -890,12 +890,13 @@ async function sendBatch(payload) {
     return true;
 }
 
-function loadCandidates(){
+// MỚI
+function loadCandidates(silent = false){
   const exam = document.getElementById("examSelect").value;
   const belt = document.getElementById("beltSelect").value;
 
   if(!examConfirmed){
-    alert("VUI LÒNG XÁC NHẬN KHÓA THI");
+    if(!silent) alert("VUI LÒNG XÁC NHẬN KHÓA THI");
     return;
   }
   if(!exam || !belt) return;
@@ -909,30 +910,102 @@ function loadCandidates(){
 
   fetch(`${API_BASE}/candidates?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}`)
     .then(res => res.json())
-    .then(list => renderCandidateRows(list))
+    .then(list => {
+      // 🔥 Kiểm tra xem GK có đang nhập dở không
+      const judge = localStorage.getItem("judge");
+      const key = `draft_${judge}_${exam}_${belt}`;
+      const hasDraft = !!localStorage.getItem(key);
+
+      if(hasDraft && silent){
+        // Đang có draft → chỉ merge điểm từ server vào,
+        // KHÔNG ghi đè ô đang nhập của GK này
+        mergeServerScores(list);
+      } else {
+        renderCandidateRows(list);
+      }
+    })
     .catch(err => {
       console.error(err);
-      alert("Không load được danh sách thí sinh");
+      if(!silent) alert("Không load được danh sách thí sinh");
     });
 }
 
+// MỚI
+function mergeServerScores(serverList){
+  serverList.forEach(c => {
+    const row = document.querySelector(`#scoreTable tbody tr[data-id="${c.id}"]`);
+    if(!row) return;
+
+    const inputs = row.querySelectorAll("input");
+    const totalCell = row.querySelector(".total-cell");
+    const rankCell = row.cells[row.cells.length - 2];
+    const resultCell = row.cells[row.cells.length - 1];
+
+    (c.scores || []).forEach((val, idx) => {
+      if(!inputs[idx]) return;
+
+      const hasServerValue = (val !== null && val !== undefined && val !== "");
+      const myValue = inputs[idx].value.trim();
+
+      if(hasServerValue && myValue === ""){
+        // 🔥 Server có điểm, GK này chưa nhập → điền + lock
+        inputs[idx].value = val;
+        inputs[idx].disabled = true;
+        inputs[idx].style.background = "#e9ecef";
+        inputs[idx].style.color = "#555";
+        inputs[idx].style.cursor = "not-allowed";
+
+        const num = parseFloat(val);
+        if(!isNaN(num) && num <= 4.5){
+          inputs[idx].classList.add("score-low");
+        }
+      }
+      // Nếu GK này đã nhập → giữ nguyên, không đụng vào
+    });
+
+    // Luôn cập nhật tổng/hạng/kết quả từ server
+    if(c.total !== "")  totalCell.innerHTML = `<b>${c.total}</b>`;
+    if(c.rank !== "")   rankCell.textContent = c.rank;
+    if(c.result !== "") resultCell.textContent = c.result;
+  });
+}
+
+// MỚI
 function renderCandidateRows(list){
   const tbody = document.querySelector("#scoreTable tbody");
   tbody.innerHTML = "";
 
   list.forEach((c, index) => {
+
+    // 🔥 Mỗi ô điểm: nếu server đã có giá trị → lock, tô xám
+    const scoreInputs = (c.scores || ["","","","","",""]).map(s => {
+      const hasValue = (s !== null && s !== undefined && s !== "");
+      const num = parseFloat(s);
+      const isLow = hasValue && !isNaN(num) && num <= 4.5;
+
+      const lockedStyle = hasValue
+        ? `background:#e9ecef; color:#555; cursor:not-allowed;`
+        : "";
+      const lowClass = isLow ? `score-low` : "";
+      const disabledAttr = hasValue ? `disabled` : "";
+
+      return `<td><input type="text" inputmode="decimal"
+        pattern="[0-9]*[.,]?[0-9]*"
+        autocomplete="off" autocapitalize="off" spellcheck="false"
+        value="${s ?? ''}"
+        class="${lowClass}"
+        style="${lockedStyle}"
+        ${disabledAttr}
+      ></td>`;
+    }).join("");
+
     const row = `
       <tr data-id="${c.id}">
         <td>${index + 1}</td>
         <td>${c.name}</td>
         <td>${c.birth_year}</td>
         <td>${c.unit ?? ""}</td>
-
-        ${(c.scores || ["","","","","",""]).map(s => `
-          <td><input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*"
-            autocomplete="off" autocapitalize="off" spellcheck="false" value="${s ?? ''}"></td>
-        `).join("")}
-
+        ${scoreInputs}
         <td class="total-cell"><b>${c.total ? c.total : ""}</b></td>
         <td>${c.rank ? c.rank : ""}</td>
         <td>${c.result ? c.result : ""}</td>
@@ -942,7 +1015,7 @@ function renderCandidateRows(list){
   });
 
   restoreDraft();
-  attachScoreInputHandlers(); // tách đoạn validate/tính tổng ra hàm riêng
+  attachScoreInputHandlers();
 }
 
 function attachScoreInputHandlers(){
@@ -1180,6 +1253,7 @@ function openTab(tabName){
 
     // 🔥 THÊM DÒNG NÀY: tự động reload trạng thái chữ ký khi vào tab score
     if (tabName === "score" && examConfirmed) {
+        loadCandidates(true);   // silent reload 
         loadSignatureStatus();
     }
 }
