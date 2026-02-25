@@ -1531,18 +1531,45 @@ function clearCanvas(){
 
 let uploadedSignature = null;
 
+// MỚI
 document.getElementById("signatureUpload")
 .addEventListener("change", function(){
 
     const file = this.files[0];
-    if(!file) return;
+    if(!file){
+        console.log("Không có file");
+        return;
+    }
+
+    // 🔥 Kiểm tra loại file
+    if(!file.type.startsWith("image/")){
+        alert("Vui lòng chọn file ảnh (jpg, png, gif...)");
+        this.value = "";
+        return;
+    }
+
+    // 🔥 Kiểm tra kích thước (max 2MB)
+    if(file.size > 2 * 1024 * 1024){
+        alert("Ảnh quá lớn. Vui lòng chọn ảnh dưới 2MB");
+        this.value = "";
+        return;
+    }
 
     const reader = new FileReader();
+
     reader.onload = function(e){
         uploadedSignature = e.target.result;
         document.getElementById("previewBox").innerHTML =
-            `<img src="${uploadedSignature}" width="200">`;
+            `<img src="${uploadedSignature}" width="200" style="border:1px solid #ccc; border-radius:4px;">
+             <p style="color:green; font-size:13px;">✅ Đã tải ảnh chữ ký thành công</p>`;
+        console.log("uploadedSignature set, size:", uploadedSignature.length);
     };
+
+    reader.onerror = function(){
+        alert("Không đọc được file. Vui lòng thử lại.");
+        uploadedSignature = null;
+    };
+
     reader.readAsDataURL(file);
 });
 
