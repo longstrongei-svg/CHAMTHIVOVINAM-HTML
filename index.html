@@ -8,51 +8,77 @@
 <style>
 body{
     margin:0;
-    font-family:Segoe UI;
+    font-family:Segoe UI, Arial, sans-serif;
     background:#f4f6f9;
 }
 
+/* ================= HEADER ================= */
 header{
-    background:#0d6efd;
+    background:#1f6fe5;
     color:white;
-    padding:15px;
+    padding:14px 24px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+.header-left{
     display:flex;
     justify-content:space-between;
     align-items:center;
 }
 
-.container{
-    padding:20px;
+.header-title{
+    line-height:1.3;
+    font-weight:600;
 }
 
-.card{
-    background:white;
-    padding:25px;
-    border-radius:10px;
-    box-shadow:0 4px 15px rgba(0,0,0,0.08);
+.header-user{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-weight:500;
 }
 
-input.score-low {
-    color: red;
-    font-weight: bold;
-    background: #fff5f5;
+.judge-name{
+    color:white;
+    font-weight:600;
+    font-size:15px;
 }
 
-button{
-    padding:8px 15px;
-    border:none;
+.btn-logout{
+    padding:6px 14px;
     border-radius:6px;
-    cursor:pointer;
 }
 
-.btn-primary{background:#0d6efd;color:white;}
-.btn-danger{background:#dc3545;color:white;}
-.btn-success{background:#198754;color:white;}
-.btn-warning{background:#ffc107;color:black;}
+/* ================= LAYOUT ================= */
+
+.container{
+    padding:12px 24px 24px 24px;
+}
+
+.tabs{
+    margin-top:12px;
+}
 
 .tabs button{
     margin-right:10px;
     background:#e9ecef;
+    border-radius:8px;
+    padding:8px 16px;
+    font-weight:500;
+    transition:0.2s;
+}
+
+.tabs button:hover{
+    background:#d0d7e2;
+}
+
+/* ================= CARD ================= */
+
+.card{
+    background:white;
+    padding:25px;
+    border-radius:12px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.05);
 }
 
 .tab-content{
@@ -64,11 +90,32 @@ button{
     display:block;
 }
 
+/* ================= FORM ================= */
+
 input, select{
-    padding:6px;
-    margin:5px 0 15px 0;
+    padding:8px;
+    margin:6px 0 15px 0;
     width:100%;
+    border:1px solid #dcdcdc;
+    border-radius:6px;
 }
+
+/* ================= BUTTON ================= */
+
+button{
+    padding:8px 15px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:500;
+}
+
+.btn-primary{background:#1f6fe5;color:white;}
+.btn-danger{background:#dc3545;color:white;}
+.btn-success{background:#198754;color:white;}
+.btn-warning{background:#ffc107;color:black;}
+
+/* ================= TABLE ================= */
 
 table{
     width:100%;
@@ -77,14 +124,30 @@ table{
 }
 
 table th, table td{
-    border:1px solid #ddd;
-    padding:6px;
+    border:1px solid #e5e7eb;
+    padding:8px;
     text-align:center;
+}
+
+#scoreTable thead th{
+    position: sticky;
+    top: 0;
+    background: #1f6fe5;
+    color: white;
+    z-index: 3;
+}
+
+/* ================= UTIL ================= */
+
+input.score-low {
+    color: red;
+    font-weight: bold;
+    background: #fff5f5;
 }
 
 .login-box{
     width:350px;
-    margin:120px auto;   /* căn giữa ngang */
+    margin:120px auto;
     text-align:center;
 }
 
@@ -92,21 +155,52 @@ table th, table td{
     text-decoration:underline;
 }
 
-.success{color:green;font-weight:bold;}
+.success{
+    color:green;
+    font-weight:bold;
+}
 
 .table-wrapper{
-    height: 500px;   /* giảm xuống thấp */
+    height: 500px;
     overflow-y: auto;
 }
 
-#scoreTable thead th{
-    position: sticky;
-    top: 0;
-    background: #0d6efd;
-    color: white;
-    z-index: 3;
-}
-</style>
+    /* ── CROP MODAL ── */
+    #photoCropModal {
+        display: none; position: fixed; inset: 0;
+        background: #111; z-index: 9999;
+        flex-direction: column; align-items: center;
+        padding: 12px 12px 24px; overflow-y: auto;
+    }
+    #photoCropModal.open { display: flex; }
+    .crop-modal-title { color:#fff; font-size:15px; font-weight:700; margin-bottom:4px; }
+    .crop-modal-sub   { color:#9ca3af; font-size:12px; margin-bottom:10px; text-align:center; }
+    #cropCanvasWrap {
+        position: relative; touch-action: none;
+        border-radius: 8px; overflow: visible; margin-bottom: 12px; flex-shrink: 0;
+    }
+    #cropSourceCanvas { display:block; border-radius:8px; }
+    #cropOverlayCanvas {
+        position:absolute; left:0; top:0;
+        pointer-events:none; border-radius:8px;
+    }
+    .crop-handle {
+        position:absolute; width:32px; height:32px;
+        background:#fff; border:3px solid #1f6fe5; border-radius:50%;
+        transform:translate(-50%,-50%); cursor:pointer;
+        touch-action:none; z-index:20;
+        box-shadow:0 2px 8px rgba(0,0,0,0.4);
+    }
+    .crop-modal-btns { display:flex; gap:8px; width:100%; max-width:480px; }
+    .crop-modal-btns button {
+        flex:1; padding:13px; border-radius:10px; border:none;
+        font-size:13px; font-weight:700; cursor:pointer;
+    }
+    .crop-btn-cancel { background:#374151; color:#fff; }
+    .crop-btn-auto   { background:#f59e0b; color:#fff; }
+    .crop-btn-ok     { background:#22c55e; color:#fff; }
+
+    </style>
 </head>
 
 <body>
@@ -119,6 +213,7 @@ table th, table td{
     <select id="loginJudge">
         <option value="">-- Chọn --</option>
         <option>Admin</option>
+        <option>Phụ trách CLB</option>        
         <option>Nguyễn Trường Định</option>
         <option>Bùi Tuấn Đạt</option>
         <option>Vũ Đình Đồng</option>
@@ -151,15 +246,61 @@ table th, table td{
 <div id="dashboard" style="display:none;">
 
 <header>
-    <div>
-        <strong>HỆ THỐNG CHẤM THI VOVINAM</strong><br>
-        LIÊN ĐOÀN VOVINAM - VIỆT VÕ ĐẠO TP. HÀ NỘI
-    </div>
-    <div>
-        <span id="judgeName"></span>
-        <button class="btn-danger" onclick="logout()">Đăng xuất</button>
+    <div class="header-left">
+        <div class="header-title">
+            <strong>HỆ THỐNG CHẤM THI VOVINAM</strong><br>
+            LIÊN ĐOÀN VOVINAM - VIỆT VÕ ĐẠO TP. HÀ NỘI
+        </div>
+
+        <div class="header-user">
+            👤 <span id="judgeName" class="judge-name"></span>
+            <button class="btn-danger btn-logout" onclick="logout()">Đăng xuất</button>
+        </div>
     </div>
 </header>
+
+<div class="container">
+    <!-- ===== KHU VỰC PHỤ TRÁCH CLB ===== -->
+    <div id="clubArea" style="display:none;">
+
+        <div class="container">
+            <div class="card" id="clubSetupCard">
+                <h3>Chọn khóa thi</h3>
+                <label>Khóa thi</label>
+                <select id="clubExamSelect" style="max-width:300px;"></select>
+                <br>
+                <button class="btn-primary" onclick="confirmClubExam()" style="margin-top:10px;">XÁC NHẬN</button>
+                <div id="clubWelcome" class="success" style="margin-top:10px;"></div>
+            </div>
+
+            <div id="clubListCard" class="card" style="display:none; margin-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+                    <h3 style="margin:0;">DANH SÁCH THÍ SINH</h3>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="position:relative;">
+                            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#888;pointer-events:none;">🔍</span>
+                            <input type="text" id="clubSearchInput"
+                                placeholder="Tìm kiếm tên thí sinh..."
+                                oninput="filterClubTable()"
+                                style="padding:8px 8px 8px 34px;border:1.5px solid #c0cfe0;border-radius:8px;width:240px;font-size:14px;outline:none;margin:0;">
+                        </div>
+                        <span id="clubSearchCount" style="font-size:13px;color:#666;white-space:nowrap;"></span>
+                    </div>
+                </div>
+                <div id="clubGroupedList"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== KHU VỰC CHẤM ĐIỂM ===== -->
+    <div id="judgeArea">
+
+        <div class="container">
+            <!-- toàn bộ nội dung chấm điểm cũ nằm ở đây -->
+        </div>
+
+    </div>
 
 <div class="container">
 
@@ -179,12 +320,6 @@ table th, table td{
         </select>
         <button class="btn-primary" onclick="confirmExam()">XÁC NHẬN</button>
         <hr style="margin:16px 0;">
-        <h3>Chế độ Offline (khi server tắt)</h3>
-
-        <input type="file" id="offlineFile" accept="application/json">
-        <button class="btn-warning" onclick="importOfflineJson()">Nạp dữ liệu Offline</button>
-
-        <div id="offlineInfo" style="margin-top:10px; opacity:.8;"></div>
         <div id="welcomeBox" class="success"></div>
     </div>
 
@@ -819,8 +954,18 @@ async function submitScore(){
         const key = `draft_${judge}_${exam}_${belt}`;
         localStorage.removeItem(key);
 
-        loadCandidates();
         alert("Đã lưu điểm & ký xác nhận thành công");
+
+        // Reload lấy kết quả + xếp hạng THẬT từ server
+        await new Promise(resolve => {
+          fetch(`${API_BASE}/candidates?exam=${encodeURIComponent(exam)}&belt=${encodeURIComponent(belt)}`)
+            .then(r => r.json())
+            .then(list => {
+              renderCandidateRows(list);  // render lại với rank + result thật
+              resolve();
+            })
+            .catch(() => resolve());
+        });
 
         openTab("print");
         loadPrintPdf();
@@ -970,6 +1115,9 @@ function loadCandidates(silent = false){
     });
 }
 
+
+
+
 // MỚI
 function mergeServerScores(serverList){
   serverList.forEach(c => {
@@ -1109,16 +1257,98 @@ function attachScoreInputHandlers(){
         });
     });
 
-    function calculateTotal(){
+function calculateTotal(){
       let sum = 0;
+      let scores = [];
       inputs.forEach(i=>{
         let v = parseFloat(i.value);
-        if(!isNaN(v)) sum += v;
+        if(!isNaN(v)){
+          sum += v;
+          scores.push(v);
+        }
       });
+
       totalCell.innerHTML = "<b>" + sum.toFixed(1) + "</b>";
+
+      if(scores.length === 6){
+        const count45     = scores.filter(s => s === 4.5).length;
+        const countBelow5 = scores.filter(s => s < 5.0).length;
+
+        let result = "", resultColor = "";
+        if(countBelow5 === 0){
+          result = "ĐẠT"; resultColor = "#198754";
+        } else if(count45 === 1 && countBelow5 === 1){
+          result = "VỚT"; resultColor = "#fd7e14";
+        } else {
+          result = "TRƯỢT"; resultColor = "#dc3545";
+        }
+
+        const resultCell = row.cells[row.cells.length - 1];
+        resultCell.innerHTML = `<span style="color:${resultColor};font-weight:bold;">${result} *</span>`;
+
+      } else {
+        // Chưa đủ 6 điểm → xóa KQ tạm
+        const resultCell = row.cells[row.cells.length - 1];
+        if(resultCell.innerHTML.includes("*")) resultCell.innerHTML = "";
+
+        // Xóa hạng tạm của hàng này
+        const rankCell = row.cells[row.cells.length - 2];
+        if(rankCell.innerHTML.includes("*")) rankCell.innerHTML = "";
+      }
+
+      // 🔥 Tính lại hạng toàn bảng
+      recalcAllRanks();
+
+    }   // ✅ đóng calculateTotal
+
+  });   // ✅ đóng rows.forEach
+
+}   // ✅ đóng attachScoreInputHandlers
+
+
+// ===================
+// TÍNH HẠNG TẠM TOÀN BẢNG
+// ===================
+function recalcAllRanks(){
+  const allRows = document.querySelectorAll("#scoreTable tbody tr");
+
+  const rowData = [];
+  allRows.forEach(r => {
+    const inputs = r.querySelectorAll("input");
+    let filledCount = 0;
+    inputs.forEach(i => { if(i.value.trim() !== "") filledCount++; });
+
+    const total = parseFloat(r.querySelector(".total-cell")?.textContent) || 0;
+    rowData.push({ row: r, total, filledCount });
+  });
+
+  // Chỉ xếp hạng hàng đã nhập đủ 6 ô
+  const filled = rowData.filter(d => d.filledCount === 6);
+  if(filled.length === 0) return;
+
+  // Sắp xếp giảm dần
+  const sorted = [...filled].sort((a, b) => b.total - a.total);
+
+  // Gán hạng — cùng tổng = cùng hạng
+  let rank = 1;
+  sorted.forEach((item, idx) => {
+    if(idx > 0 && item.total < sorted[idx - 1].total) rank = idx + 1;
+    item.rank = rank;
+  });
+
+  // Ghi vào bảng
+  rowData.forEach(d => {
+    const rankCell = d.row.cells[d.row.cells.length - 2];
+    if(d.filledCount === 6){
+      const found = filled.find(f => f.row === d.row);
+      if(found) rankCell.innerHTML = `<span style="color:#0d6efd;font-weight:bold;">${found.rank} *</span>`;
+    } else {
+      if(rankCell.innerHTML.includes("*")) rankCell.innerHTML = "";
     }
   });
 }
+
+
 // ===================
 // EVENT
 // ===================
@@ -1144,82 +1374,115 @@ document.getElementById("beltSelect")
 // ===================
 // LOGIN
 // ===================
-async function login(){
-  const judge = document.getElementById("loginJudge").value;
-  const pass  = document.getElementById("loginPassword").value;
+async function login() {
+    const user = document.getElementById("loginJudge").value;
+    const pass = document.getElementById("loginPassword").value;
 
-  if(!judge){
-    alert("Chọn giám khảo");
-    return;
-  }
+    if (!user) { alert("Vui lòng chọn tài khoản"); return; }
+    if (!pass)  { alert("Vui lòng nhập mật khẩu"); return; }
 
-  try{
-    const res = await fetch(API_BASE + "/login", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ name: judge, password: pass })
-    });
+    try {
+        const res = await fetch(API_BASE + "/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: user, password: pass })
+        });
 
-    if(!res.ok){
-      throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        if (data.status !== "success" && data.status !== "ok") {
+            alert("Sai mật khẩu hoặc tài khoản không tồn tại");
+            return;
+        }
+
+        // ✅ Lưu thông tin đăng nhập
+        localStorage.setItem("judge", user);
+        localStorage.setItem("LOGIN_MODE", "ONLINE");
+
+        document.getElementById("loginPage").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        // 🔥 THÊM DÒNG NÀY
+        document.getElementById("judgeName").textContent = "👤 " + user;
+        // Phân quyền theo role
+        const role = data.role || "judge";
+
+        if (role === "club" || user === "Phụ trách CLB") {
+            showClubManagerPage();
+        } else {
+            // Lưu tên hiển thị cho phần ký
+            document.getElementById("signerDisplayName").textContent = user;
+            document.getElementById("signatureName").value = user;
+            showJudgePage();
+            loadExams();
+        }
+
+    } catch(e) {
+        // Fallback offline nếu không kết nối được server
+        if (pass === "123456") {
+            localStorage.setItem("judge", user);
+            localStorage.setItem("LOGIN_MODE", "OFFLINE");
+
+            document.getElementById("loginPage").style.display = "none";
+            document.getElementById("dashboard").style.display = "block";
+
+            if (user === "Phụ trách CLB") {
+                showClubManagerPage();
+            } else {
+                showJudgePage();
+            }
+        } else {
+            alert("Không kết nối được server và mật khẩu không phải mặc định.\nVui lòng kiểm tra kết nối.");
+        }
     }
-
-    const data = await res.json();
-
-    if(data.status !== "success"){
-      alert(data.message || "Login fail");
-      return;
-    }
-
-    if(data.must_change === 1){
-      showChangePasswordPopup(judge);
-      return;
-    }
-
-    // ✅ login online
-    localStorage.setItem("judge", judge);
-    localStorage.setItem("LOGIN_MODE", "ONLINE");
-
-    document.getElementById("loginPage").style.display="none";
-    document.getElementById("dashboard").style.display="block";
-    document.getElementById("judgeName").innerText = judge;
-
-    loadExams();
-    renderHistory();
-    return;
-
-  }catch(err){
-
-    // ✅ login offline fallback
-    const data = loadOfflineDataFromStorage();
-    if(!data){
-      alert("❌ Server đang tắt và máy này chưa có dữ liệu Offline.\nHãy nạp file JSON export trước.");
-      return;
-    }
-
-    const ok = confirm("Server đang OFFLINE.\nBạn có muốn vào chế độ OFFLINE để chấm không?");
-    if(!ok) return;
-
-    localStorage.setItem("judge", judge);
-    localStorage.setItem("LOGIN_MODE", "OFFLINE");
-
-    document.getElementById("loginPage").style.display="none";
-    document.getElementById("dashboard").style.display="block";
-    document.getElementById("judgeName").innerText = judge + " (OFFLINE)";
-
-    // nạp data offline vào UI
-    const examSelect = document.getElementById("examSelect");
-    examSelect.innerHTML = `<option value="${data.exam}">${data.exam}</option>`;
-    examSelect.value = data.exam;
-
-    const beltSelect = document.getElementById("beltSelect");
-    beltSelect.innerHTML = "";
-    data.belts.forEach(b => beltSelect.innerHTML += `<option value="${b}">${b}</option>`);
-
-    alert("✅ Đã vào chế độ OFFLINE.\nHãy bấm XÁC NHẬN khóa thi rồi chấm.");
-    renderHistory();
-  }
 }
+
+function showJudgePage() {
+    document.getElementById("judgeArea").style.display = "block";
+    document.getElementById("clubArea").style.display = "none";
+}
+
+async function showClubManagerPage() {
+    document.getElementById("judgeArea").style.display = "none";
+    document.getElementById("clubArea").style.display = "block";
+
+    const name = localStorage.getItem("judge");
+
+    try {
+        // Thử lấy khóa thi được phân công trước
+        const res = await fetch(`${API_BASE}/ptclb_exams?name=${encodeURIComponent(name)}`);
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        let exams = data.exams || [];
+
+        // Nếu không có phân công → lấy tất cả khóa thi
+        if (exams.length === 0) {
+            const res2 = await fetch(API_BASE + "/exams");
+            if (!res2.ok) {
+                throw new Error(`HTTP error! status: ${res2.status}`);
+            }
+            exams = await res2.json();
+        }
+
+        const sel = document.getElementById("clubExamSelect");
+        sel.innerHTML = "<option value=''>-- Chọn khóa thi --</option>";
+        exams.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
+
+        // Nếu chỉ có 1 khóa thi → tự chọn luôn
+        if (exams.length === 1) {
+            sel.value = exams[0];
+        }
+
+    } catch(err) {
+        console.error("Lỗi showClubManagerPage:", err);
+        alert("Không tải được danh sách khóa thi: " + err.message);
+    }
+}
+
+
+
 
 function showChangePasswordPopup(name){
 
@@ -1870,8 +2133,339 @@ async function loadBienBan(exam) {
         document.getElementById("bb_kien_nghi").value    = data.kien_nghi    || "";
     }
 }
+
+
+
+
+
+<!-- Thêm function này vào trong phần script của GK.html -->
+
+
+
+
+
+
+
+
+// ============================================================
+// CLUB MANAGER
+// ============================================================
+let clubAllData = [];
+let clubCurrentExam = "";
+
+async function loadClubCandidates(exam) {
+    clubCurrentExam = exam;
+    try {
+        const res = await fetch(`${API_BASE}/all_candidates?exam=${encodeURIComponent(exam)}&t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        clubAllData = await res.json();
+        renderClubGrouped(clubAllData, exam);
+    } catch(e) {
+        document.getElementById("clubGroupedList").innerHTML =
+            `<p style="color:red;text-align:center;padding:20px;">Lỗi: ${e.message}</p>`;
+    }
+}
+
+function filterClubTable() {
+    const keyword = document.getElementById("clubSearchInput").value.trim().toLowerCase();
+    if (!keyword) {
+        renderClubGrouped(clubAllData, clubCurrentExam);
+        document.getElementById("clubSearchCount").textContent = "";
+        return;
+    }
+    const filtered = clubAllData.filter(c => (c.name || "").toLowerCase().includes(keyword));
+    renderClubGrouped(filtered, clubCurrentExam, keyword);
+    document.getElementById("clubSearchCount").textContent =
+        `Tìm thấy: ${filtered.length} / ${clubAllData.length}`;
+}
+
+function renderClubGrouped(data, exam, highlight) {
+    const container = document.getElementById("clubGroupedList");
+    if (!data.length) {
+        container.innerHTML = `<p style="text-align:center;color:#888;padding:20px;">Không tìm thấy thí sinh</p>`;
+        return;
+    }
+    const groups = {}, beltOrder = [];
+    data.forEach(c => {
+        const belt = c.belt || "(Chưa có cấp đai)";
+        if (!groups[belt]) { groups[belt] = []; beltOrder.push(belt); }
+        groups[belt].push(c);
+    });
+    let html = "";
+    beltOrder.forEach(belt => {
+        const rows = groups[belt];
+        let tableRows = "";
+        rows.forEach(c => {
+            let nm = c.name || "";
+            if (highlight) {
+                const esc = highlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                nm = nm.replace(new RegExp(esc, "gi"), m => `<mark style="background:#fff3cd;">${m}</mark>`);
+            }
+            const photoPreview = c.has_photo
+                ? `<div style="display:inline-block;"><img src="${API_BASE}/card_photo?exam=${encodeURIComponent(exam)}&code=${encodeURIComponent(c.photo_code)}&t=${Date.now()}" style="width:60px;height:72px;object-fit:cover;border:2px solid #198754;border-radius:4px;display:block;margin-bottom:2px;" onerror="this.style.display='none'"><span style="color:#198754;font-size:11px;font-weight:600;">✅ ${c.photo_code}</span></div>`
+                : `<span style="color:#bbb;font-size:12px;">Chưa có ảnh</span>`;
+            tableRows += `<tr data-id="${c.id}"><td style="width:50px;text-align:center;color:#555;font-weight:600;">${c.global_stt}</td><td>${nm}</td><td style="text-align:center;color:#555;">${c.birth_year||""}</td><td style="color:#555;">${c.unit||""}</td><td><div style="display:flex;flex-direction:column;gap:6px;">
+                            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#1f6fe5;border-radius:6px;padding:6px 10px;font-size:13px;color:#fff;font-weight:500;">
+                                📷 Chụp ảnh
+                                <input type="file" accept="image/*" capture="environment" onchange="openCropModal(this,'${exam}','${c.photo_code}')" style="display:none;">
+                            </label>
+                            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#e7f1ff;border:1.5px solid #1f6fe5;border-radius:6px;padding:6px 10px;font-size:13px;color:#1f6fe5;font-weight:500;">
+                                📁 Chọn file
+                                <input type="file" accept="image/*" onchange="openCropModal(this,'${exam}','${c.photo_code}')" style="display:none;">
+                            </label>
+                        </div><div class="photo-container" style="margin-top:4px;">${photoPreview}</div></td></tr>`;
+        });
+        html += `<div style="margin-bottom:24px;"><div style="background:linear-gradient(90deg,#1f6fe5,#3b8cf7);color:white;padding:8px 16px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center;"><span>🥋 ${belt}</span><span style="font-size:12px;opacity:0.85;">${rows.length} thí sinh</span></div><div style="overflow-x:auto;border:1px solid #dde3ed;border-top:none;border-radius:0 0 8px 8px;"><table style="width:100%;border-collapse:collapse;font-size:14px;"><thead><tr style="background:#f4f7fb;"><th style="padding:8px;border-bottom:2px solid #dde3ed;text-align:center;color:#555;width:50px;">STT</th><th style="padding:8px;border-bottom:2px solid #dde3ed;color:#555;">Họ và tên</th><th style="padding:8px;border-bottom:2px solid #dde3ed;text-align:center;color:#555;">Năm sinh</th><th style="padding:8px;border-bottom:2px solid #dde3ed;color:#555;">Đơn vị</th><th style="padding:8px;border-bottom:2px solid #dde3ed;color:#555;">Ảnh thẻ</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
+    });
+    container.innerHTML = html;
+}
+
+async function uploadPhoto(input, exam, photoCode) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 3*1024*1024) { alert("Ảnh quá lớn (tối đa 3MB)"); input.value=""; return; }
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const b64 = e.target.result;
+        try {
+            const res = await fetch(API_BASE+"/upload_card_photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({exam,code:photoCode,image:b64})});
+            const data = await res.json();
+            if (data.status === "success") {
+                const container = input.closest("tr").querySelector(".photo-container");
+                if (container) {
+                    container.innerHTML = `<div style="display:inline-block;"><img src="${b64}" style="width:60px;height:72px;object-fit:cover;border:2px solid #198754;border-radius:4px;display:block;margin-bottom:2px;"><span style="color:#198754;font-size:11px;font-weight:600;">✅ ${photoCode}</span></div>`;
+                    setTimeout(()=>{const img=container.querySelector("img");if(img)img.src=`${API_BASE}/card_photo?exam=${encodeURIComponent(exam)}&code=${encodeURIComponent(photoCode)}&t=${Date.now()}`;},1500);
+                }
+                const found = clubAllData.find(c => c.photo_code === photoCode);
+                if (found) found.has_photo = true;
+                alert("✅ Upload ảnh thành công!");
+            } else { alert("❌ Upload thất bại: "+(data.message||"")); }
+        } catch(err) { alert("Lỗi kết nối: "+err.message); }
+    };
+    reader.readAsDataURL(file);
+}
+
+async function confirmClubExam() {
+    const exam = document.getElementById("clubExamSelect").value;
+    if (!exam) { alert("Vui lòng chọn khóa thi"); return; }
+    document.getElementById("clubWelcome").innerHTML = `✅ Đã xác nhận khóa thi: <b>${exam}</b>`;
+    document.getElementById("clubListCard").style.display = "block";
+    document.getElementById("clubGroupedList").innerHTML = `<p style="text-align:center;color:#888;padding:30px;">⏳ Đang tải dữ liệu...</p>`;
+    await loadClubCandidates(exam);
+}
+
+// ============================================================
+// PHOTO CROP
+// ============================================================
+let _cropImg = null, _cropScale = 1, _cropCorners = [];
+let _cropDragging = -1, _cropExam = '', _cropCode = '';
+
+function openCropModal(input, exam, photoCode) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert("Ảnh quá lớn (tối đa 5MB)"); input.value=""; return; }
+    _cropExam = exam; _cropCode = photoCode;
+    const img = new Image();
+    img.onload = () => { _cropImg = img; _initCropModal(img); };
+    img.src = URL.createObjectURL(file);
+    input.value = '';
+}
+
+function _initCropModal(img) {
+    document.getElementById('photoCropModal').classList.add('open');
+    const src = document.getElementById('cropSourceCanvas');
+    const ovr = document.getElementById('cropOverlayCanvas');
+
+    const maxW = Math.min(window.innerWidth - 24, 480);
+    const maxH = window.innerHeight * 0.60;
+    _cropScale = Math.min(maxW / img.width, maxH / img.height, 1);
+    const dw = Math.round(img.width * _cropScale);
+    const dh = Math.round(img.height * _cropScale);
+
+    src.width = dw; src.height = dh;
+    ovr.width = dw; ovr.height = dh;
+    ovr.style.width = dw+'px'; ovr.style.height = dh+'px';
+    src.getContext('2d').drawImage(img, 0, 0, dw, dh);
+
+    const detected = _detectRect(src);
+    if (detected) {
+        _cropCorners = detected.map(([x,y]) => [x/_cropScale, y/_cropScale]);
+    } else {
+        const m = 0.10;
+        _cropCorners = [
+            [img.width*m,     img.height*m],
+            [img.width*(1-m), img.height*m],
+            [img.width*(1-m), img.height*(1-m)],
+            [img.width*m,     img.height*(1-m)],
+        ];
+    }
+    _refreshCropOverlay();
+    _setupCropDrag();
+}
+
+function _refreshCropOverlay() {
+    const ovr = document.getElementById('cropOverlayCanvas');
+    const ctx = ovr.getContext('2d');
+    ctx.clearRect(0, 0, ovr.width, ovr.height);
+    const pts = _cropCorners.map(([x,y]) => [x*_cropScale, y*_cropScale]);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, ovr.width, ovr.height);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    pts.slice(1).forEach(([x,y]) => ctx.lineTo(x,y));
+    ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#4a9eff'; ctx.lineWidth = 2; ctx.setLineDash([7,3]);
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    pts.slice(1).forEach(([x,y]) => ctx.lineTo(x,y));
+    ctx.closePath(); ctx.stroke();
+
+    _cropCorners.forEach(([x,y], i) => {
+        const h = document.getElementById(`ch${i}`);
+        h.style.left = (x*_cropScale)+'px';
+        h.style.top  = (y*_cropScale)+'px';
+    });
+}
+
+function _setupCropDrag() {
+    for (let i = 0; i < 4; i++) {
+        const h = document.getElementById(`ch${i}`);
+        h.onpointerdown = (e) => { e.preventDefault(); _cropDragging=i; h.setPointerCapture(e.pointerId); };
+        h.onpointermove = (e) => {
+            if (_cropDragging !== i) return;
+            e.preventDefault();
+            const wrap = document.getElementById('cropCanvasWrap');
+            const rect = wrap.getBoundingClientRect();
+            const x = Math.max(0, Math.min((e.clientX-rect.left)/_cropScale, _cropImg.width));
+            const y = Math.max(0, Math.min((e.clientY-rect.top) /_cropScale, _cropImg.height));
+            _cropCorners[i] = [x, y];
+            _refreshCropOverlay();
+        };
+        h.onpointerup = () => { _cropDragging = -1; };
+    }
+}
+
+function cropAutoDetect() {
+    const src = document.getElementById('cropSourceCanvas');
+    const detected = _detectRect(src);
+    if (detected) {
+        _cropCorners = detected.map(([x,y]) => [x/_cropScale, y/_cropScale]);
+        _refreshCropOverlay();
+    } else {
+        alert('Không tìm thấy viền rõ.\nHãy kéo thủ công hoặc chụp lại với nền tương phản hơn.');
+    }
+}
+
+function closeCropPhotoModal() {
+    document.getElementById('photoCropModal').classList.remove('open');
+    _cropImg = null;
+}
+
+async function applyCropAndUpload() {
+    const img = _cropImg;
+    const xs = _cropCorners.map(c=>c[0]), ys = _cropCorners.map(c=>c[1]);
+    const x1 = Math.max(0, Math.min(...xs));
+    const y1 = Math.max(0, Math.min(...ys));
+    const x2 = Math.min(img.width,  Math.max(...xs));
+    const y2 = Math.min(img.height, Math.max(...ys));
+    const cw = Math.round(x2-x1), ch = Math.round(y2-y1);
+
+    const out = document.getElementById('cropOutputCanvas');
+    out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(img, x1, y1, cw, ch, 0, 0, cw, ch);
+    const b64 = out.toDataURL('image/jpeg', 0.92);
+
+    closeCropPhotoModal();
+
+    try {
+        const res = await fetch(API_BASE+"/upload_card_photo", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ exam: _cropExam, code: _cropCode, image: b64 })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+            // Update preview in table
+            const rows = document.querySelectorAll(`tr[data-id]`);
+            rows.forEach(row => {
+                const label = row.querySelector(`input[onchange*="${_cropCode}"]`);
+                if (label) {
+                    const container = row.querySelector('.photo-container');
+                    if (container) {
+                        container.innerHTML = `<div style="display:inline-block;">
+                            <img src="${b64}" style="width:60px;height:72px;object-fit:cover;border:2px solid #198754;border-radius:4px;display:block;margin-bottom:2px;">
+                            <span style="color:#198754;font-size:11px;font-weight:600;">✅ ${_cropCode}</span>
+                        </div>`;
+                        setTimeout(()=>{ const im=container.querySelector('img'); if(im) im.src=`${API_BASE}/card_photo?exam=${encodeURIComponent(_cropExam)}&code=${encodeURIComponent(_cropCode)}&t=${Date.now()}`; }, 1500);
+                    }
+                }
+            });
+            const found = clubAllData.find(c => c.photo_code === _cropCode);
+            if (found) found.has_photo = true;
+            alert("✅ Upload ảnh thành công!");
+        } else {
+            alert("❌ Upload thất bại: " + (data.message || ""));
+        }
+    } catch(err) { alert("Lỗi kết nối: " + err.message); }
+}
+
+function _detectRect(srcCanvas) {
+    const w = srcCanvas.width, h = srcCanvas.height;
+    const d = srcCanvas.getContext('2d').getImageData(0,0,w,h).data;
+    const lum = new Uint8Array(w*h);
+    for (let i=0; i<w*h; i++) lum[i]=(d[i*4]*77+d[i*4+1]*150+d[i*4+2]*29)>>8;
+    const blr = new Uint8Array(w*h);
+    for (let y=1; y<h-1; y++)
+        for (let x=1; x<w-1; x++)
+            blr[y*w+x]=(lum[(y-1)*w+(x-1)]+2*lum[(y-1)*w+x]+lum[(y-1)*w+(x+1)]+
+                        2*lum[y*w+(x-1)]+4*lum[y*w+x]+2*lum[y*w+(x+1)]+
+                        lum[(y+1)*w+(x-1)]+2*lum[(y+1)*w+x]+lum[(y+1)*w+(x+1)])>>4;
+    const edg = new Uint8Array(w*h);
+    for (let y=1; y<h-1; y++)
+        for (let x=1; x<w-1; x++) {
+            const gx=-blr[(y-1)*w+(x-1)]+blr[(y-1)*w+(x+1)]-2*blr[y*w+(x-1)]+2*blr[y*w+(x+1)]-blr[(y+1)*w+(x-1)]+blr[(y+1)*w+(x+1)];
+            const gy=-blr[(y-1)*w+(x-1)]-2*blr[(y-1)*w+x]-blr[(y-1)*w+(x+1)]+blr[(y+1)*w+(x-1)]+2*blr[(y+1)*w+x]+blr[(y+1)*w+(x+1)];
+            edg[y*w+x]=Math.min(255,Math.sqrt(gx*gx+gy*gy));
+        }
+    const mx=Math.floor(w*0.04), my=Math.floor(h*0.04);
+    const xs=[], ys=[];
+    for (let y=my; y<h-my; y++)
+        for (let x=mx; x<w-mx; x++)
+            if (edg[y*w+x]>55) { xs.push(x); ys.push(y); }
+    if (xs.length<400) return null;
+    xs.sort((a,b)=>a-b); ys.sort((a,b)=>a-b);
+    const p=Math.floor(xs.length*0.05), p2=Math.floor(xs.length*0.95);
+    const x1=xs[p]-5, x2=xs[p2]+5, y1=ys[p]-5, y2=ys[p2]+5;
+    if ((x2-x1)*(y2-y1)/(w*h)<0.04) return null;
+    return [[x1,y1],[x2,y1],[x2,y2],[x1,y2]];
+}
+
 </script>
 
+
+
+<!-- ── PHOTO CROP MODAL ── -->
+<div id="photoCropModal">
+    <div class="crop-modal-title">✂️ Chỉnh vùng crop</div>
+    <div class="crop-modal-sub">Kéo các góc để điều chỉnh · Nhấn Auto để tự động detect viền ảnh thẻ</div>
+    <div id="cropCanvasWrap">
+        <canvas id="cropSourceCanvas"></canvas>
+        <canvas id="cropOverlayCanvas"></canvas>
+        <div class="crop-handle" id="ch0" data-i="0"></div>
+        <div class="crop-handle" id="ch1" data-i="1"></div>
+        <div class="crop-handle" id="ch2" data-i="2"></div>
+        <div class="crop-handle" id="ch3" data-i="3"></div>
+    </div>
+    <div class="crop-modal-btns">
+        <button class="crop-btn-cancel" onclick="closeCropPhotoModal()">✕ Huỷ</button>
+        <button class="crop-btn-auto"   onclick="cropAutoDetect()">🔍 Auto detect</button>
+        <button class="crop-btn-ok"     onclick="applyCropAndUpload()">✂️ Crop & Upload</button>
+    </div>
+</div>
+<canvas id="cropOutputCanvas" style="display:none;"></canvas>
 
 </body>
 </html>
