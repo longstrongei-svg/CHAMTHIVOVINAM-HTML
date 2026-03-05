@@ -197,7 +197,7 @@ input.score-low {
         font-size:13px; font-weight:700; cursor:pointer;
     }
     .crop-btn-cancel { background:#374151; color:#fff; }
-    .crop-btn-auto   { background:#f59e0b; color:#fff; }
+    .crop-btn-rotate { background:#6366f1; color:#fff; }
     .crop-btn-ok     { background:#22c55e; color:#fff; }
 
     </style>
@@ -2271,7 +2271,7 @@ function openCropModal(input, exam, photoCode) {
     input.value = '';
 }
 
-async function _initCropModal(img) {
+function _initCropModal(img) {
     document.getElementById('photoCropModal').classList.add('open');
     const src = document.getElementById('cropSourceCanvas');
     const ovr = document.getElementById('cropOverlayCanvas');
@@ -2287,7 +2287,7 @@ async function _initCropModal(img) {
     ovr.style.width = dw+'px'; ovr.style.height = dh+'px';
     src.getContext('2d').drawImage(img, 0, 0, dw, dh);
 
-    // Default corners trước khi detect
+    // Default corners (10% lề mỗi phía)
     const m = 0.10;
     _cropCorners = [
         [img.width*m,     img.height*m],
@@ -2297,19 +2297,6 @@ async function _initCropModal(img) {
     ];
     _refreshCropOverlay();
     _setupCropDrag();
-
-    // Hiện trạng thái đang detect
-    _showCropStatus('🔍 Đang nhận diện ảnh thẻ...', '#f59e0b');
-
-    // Gọi server detect (dùng ảnh gốc để độ chính xác cao nhất)
-    const corners = await _detectRectServer(img);
-    if (corners) {
-        _cropCorners = corners;
-        _refreshCropOverlay();
-        _showCropStatus('✅ Đã tự động nhận diện viền ảnh thẻ', '#22c55e');
-    } else {
-        _showCropStatus('⚠️ Không detect được — hãy kéo thủ công hoặc nhấn Auto', '#ef4444');
-    }
 }
 
 function _refreshCropOverlay() {
@@ -2357,17 +2344,7 @@ function _setupCropDrag() {
     }
 }
 
-async function cropAutoDetect() {
-    _showCropStatus('🔍 Đang nhận diện...', '#f59e0b');
-    const corners = await _detectRectServer(_cropImg);
-    if (corners) {
-        _cropCorners = corners;
-        _refreshCropOverlay();
-        _showCropStatus('✅ Nhận diện thành công', '#22c55e');
-    } else {
-        _showCropStatus('⚠️ Không detect được — hãy kéo thủ công', '#ef4444');
-    }
-}
+
 
 function closeCropPhotoModal() {
     document.getElementById('photoCropModal').classList.remove('open');
@@ -2422,56 +2399,23 @@ async function applyCropAndUpload() {
     } catch(err) { alert("Lỗi kết nối: " + err.message); }
 }
 
-// ── Gọi OpenCV server để detect góc ảnh thẻ ──
-async function _detectRectServer(img) {
-    try {
-        // Resize ảnh trước khi gửi để tiết kiệm băng thông (max 1200px)
-        const maxDim = 1200;
-        const scale = Math.min(maxDim / Math.max(img.width, img.height), 1.0);
-        const tw = Math.round(img.width * scale);
-        const th = Math.round(img.height * scale);
-        const tmp = document.createElement('canvas');
-        tmp.width = tw; tmp.height = th;
-        tmp.getContext('2d').drawImage(img, 0, 0, tw, th);
-        const b64 = tmp.toDataURL('image/jpeg', 0.85);
+// ── Xoay ảnh 90° theo chiều kim đồng hồ ──
+function rotateCropImage() {
+    const img = _cropImg;
+    const tmp = document.createElement('canvas');
+    tmp.width  = img.height;
+    tmp.height = img.width;
+    const ctx = tmp.getContext('2d');
+    ctx.translate(tmp.width / 2, tmp.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
 
-        const res = await fetch(API_BASE + '/detect_card', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: b64 })
-        });
-        const data = await res.json();
-
-        if ((data.status === 'success' || data.status === 'fallback') && data.corners) {
-            // Scale corners back to original image size
-            const sx = img.width / (data.orig_w || tw);
-            const sy = img.height / (data.orig_h || th);
-            // corners từ server là: TL, TR, BR, BL
-            // _cropCorners cần: TL, TR, BR, BL
-            return data.corners.map(([x, y]) => [x * sx, y * sy]);
-        }
-        return null;
-    } catch(e) {
-        console.error('detect_card error:', e);
-        return null;
-    }
-}
-
-// ── Status bar trong crop modal ──
-function _showCropStatus(msg, color) {
-    let bar = document.getElementById('cropStatusBar');
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'cropStatusBar';
-        bar.style.cssText = 'font-size:12px;padding:6px 12px;border-radius:8px;margin-bottom:8px;text-align:center;font-weight:500;width:100%;max-width:480px;';
-        const modal = document.getElementById('photoCropModal');
-        const wrap = document.getElementById('cropCanvasWrap');
-        modal.insertBefore(bar, wrap);
-    }
-    bar.textContent = msg;
-    bar.style.background = color + '22';
-    bar.style.color = color;
-    bar.style.border = '1px solid ' + color + '55';
+    const rotated = new Image();
+    rotated.onload = () => {
+        _cropImg = rotated;
+        _initCropModal(rotated);
+    };
+    rotated.src = tmp.toDataURL('image/jpeg', 0.95);
 }
 
 </script>
@@ -2481,7 +2425,7 @@ function _showCropStatus(msg, color) {
 <!-- ── PHOTO CROP MODAL ── -->
 <div id="photoCropModal">
     <div class="crop-modal-title">✂️ Chỉnh vùng crop</div>
-    <div class="crop-modal-sub">Kéo các góc để điều chỉnh · Nhấn Auto để tự động detect viền ảnh thẻ</div>
+    <div class="crop-modal-sub">Kéo các góc để điều chỉnh · Nhấn 🔄 để xoay ảnh 90°</div>
     <div id="cropCanvasWrap">
         <canvas id="cropSourceCanvas"></canvas>
         <canvas id="cropOverlayCanvas"></canvas>
@@ -2492,7 +2436,7 @@ function _showCropStatus(msg, color) {
     </div>
     <div class="crop-modal-btns">
         <button class="crop-btn-cancel" onclick="closeCropPhotoModal()">✕ Huỷ</button>
-        <button class="crop-btn-auto"   onclick="cropAutoDetect()">🔍 Auto detect</button>
+        <button class="crop-btn-rotate" onclick="rotateCropImage()">🔄 Xoay 90°</button>
         <button class="crop-btn-ok"     onclick="applyCropAndUpload()">✂️ Crop & Upload</button>
     </div>
 </div>
