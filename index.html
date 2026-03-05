@@ -2271,7 +2271,7 @@ function openCropModal(input, exam, photoCode) {
     input.value = '';
 }
 
-function _initCropModal(img) {
+async function _initCropModal(img) {
     document.getElementById('photoCropModal').classList.add('open');
     const src = document.getElementById('cropSourceCanvas');
     const ovr = document.getElementById('cropOverlayCanvas');
@@ -2287,20 +2287,29 @@ function _initCropModal(img) {
     ovr.style.width = dw+'px'; ovr.style.height = dh+'px';
     src.getContext('2d').drawImage(img, 0, 0, dw, dh);
 
-    const detected = _detectRect(src);
-    if (detected) {
-        _cropCorners = detected.map(([x,y]) => [x/_cropScale, y/_cropScale]);
-    } else {
-        const m = 0.10;
-        _cropCorners = [
-            [img.width*m,     img.height*m],
-            [img.width*(1-m), img.height*m],
-            [img.width*(1-m), img.height*(1-m)],
-            [img.width*m,     img.height*(1-m)],
-        ];
-    }
+    // Default corners trước khi detect
+    const m = 0.10;
+    _cropCorners = [
+        [img.width*m,     img.height*m],
+        [img.width*(1-m), img.height*m],
+        [img.width*(1-m), img.height*(1-m)],
+        [img.width*m,     img.height*(1-m)],
+    ];
     _refreshCropOverlay();
     _setupCropDrag();
+
+    // Hiện trạng thái đang detect
+    _showCropStatus('🔍 Đang nhận diện ảnh thẻ...', '#f59e0b');
+
+    // Gọi server detect (dùng ảnh gốc để độ chính xác cao nhất)
+    const corners = await _detectRectServer(img);
+    if (corners) {
+        _cropCorners = corners;
+        _refreshCropOverlay();
+        _showCropStatus('✅ Đã tự động nhận diện viền ảnh thẻ', '#22c55e');
+    } else {
+        _showCropStatus('⚠️ Không detect được — hãy kéo thủ công hoặc nhấn Auto', '#ef4444');
+    }
 }
 
 function _refreshCropOverlay() {
@@ -2348,14 +2357,15 @@ function _setupCropDrag() {
     }
 }
 
-function cropAutoDetect() {
-    const src = document.getElementById('cropSourceCanvas');
-    const detected = _detectRect(src);
-    if (detected) {
-        _cropCorners = detected.map(([x,y]) => [x/_cropScale, y/_cropScale]);
+async function cropAutoDetect() {
+    _showCropStatus('🔍 Đang nhận diện...', '#f59e0b');
+    const corners = await _detectRectServer(_cropImg);
+    if (corners) {
+        _cropCorners = corners;
         _refreshCropOverlay();
+        _showCropStatus('✅ Nhận diện thành công', '#22c55e');
     } else {
-        alert('Không tìm thấy viền rõ.\nHãy kéo thủ công hoặc chụp lại với nền tương phản hơn.');
+        _showCropStatus('⚠️ Không detect được — hãy kéo thủ công', '#ef4444');
     }
 }
 
@@ -2412,35 +2422,56 @@ async function applyCropAndUpload() {
     } catch(err) { alert("Lỗi kết nối: " + err.message); }
 }
 
-function _detectRect(srcCanvas) {
-    const w = srcCanvas.width, h = srcCanvas.height;
-    const d = srcCanvas.getContext('2d').getImageData(0,0,w,h).data;
-    const lum = new Uint8Array(w*h);
-    for (let i=0; i<w*h; i++) lum[i]=(d[i*4]*77+d[i*4+1]*150+d[i*4+2]*29)>>8;
-    const blr = new Uint8Array(w*h);
-    for (let y=1; y<h-1; y++)
-        for (let x=1; x<w-1; x++)
-            blr[y*w+x]=(lum[(y-1)*w+(x-1)]+2*lum[(y-1)*w+x]+lum[(y-1)*w+(x+1)]+
-                        2*lum[y*w+(x-1)]+4*lum[y*w+x]+2*lum[y*w+(x+1)]+
-                        lum[(y+1)*w+(x-1)]+2*lum[(y+1)*w+x]+lum[(y+1)*w+(x+1)])>>4;
-    const edg = new Uint8Array(w*h);
-    for (let y=1; y<h-1; y++)
-        for (let x=1; x<w-1; x++) {
-            const gx=-blr[(y-1)*w+(x-1)]+blr[(y-1)*w+(x+1)]-2*blr[y*w+(x-1)]+2*blr[y*w+(x+1)]-blr[(y+1)*w+(x-1)]+blr[(y+1)*w+(x+1)];
-            const gy=-blr[(y-1)*w+(x-1)]-2*blr[(y-1)*w+x]-blr[(y-1)*w+(x+1)]+blr[(y+1)*w+(x-1)]+2*blr[(y+1)*w+x]+blr[(y+1)*w+(x+1)];
-            edg[y*w+x]=Math.min(255,Math.sqrt(gx*gx+gy*gy));
+// ── Gọi OpenCV server để detect góc ảnh thẻ ──
+async function _detectRectServer(img) {
+    try {
+        // Resize ảnh trước khi gửi để tiết kiệm băng thông (max 1200px)
+        const maxDim = 1200;
+        const scale = Math.min(maxDim / Math.max(img.width, img.height), 1.0);
+        const tw = Math.round(img.width * scale);
+        const th = Math.round(img.height * scale);
+        const tmp = document.createElement('canvas');
+        tmp.width = tw; tmp.height = th;
+        tmp.getContext('2d').drawImage(img, 0, 0, tw, th);
+        const b64 = tmp.toDataURL('image/jpeg', 0.85);
+
+        const res = await fetch(API_BASE + '/detect_card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: b64 })
+        });
+        const data = await res.json();
+
+        if ((data.status === 'success' || data.status === 'fallback') && data.corners) {
+            // Scale corners back to original image size
+            const sx = img.width / (data.orig_w || tw);
+            const sy = img.height / (data.orig_h || th);
+            // corners từ server là: TL, TR, BR, BL
+            // _cropCorners cần: TL, TR, BR, BL
+            return data.corners.map(([x, y]) => [x * sx, y * sy]);
         }
-    const mx=Math.floor(w*0.04), my=Math.floor(h*0.04);
-    const xs=[], ys=[];
-    for (let y=my; y<h-my; y++)
-        for (let x=mx; x<w-mx; x++)
-            if (edg[y*w+x]>55) { xs.push(x); ys.push(y); }
-    if (xs.length<400) return null;
-    xs.sort((a,b)=>a-b); ys.sort((a,b)=>a-b);
-    const p=Math.floor(xs.length*0.05), p2=Math.floor(xs.length*0.95);
-    const x1=xs[p]-5, x2=xs[p2]+5, y1=ys[p]-5, y2=ys[p2]+5;
-    if ((x2-x1)*(y2-y1)/(w*h)<0.04) return null;
-    return [[x1,y1],[x2,y1],[x2,y2],[x1,y2]];
+        return null;
+    } catch(e) {
+        console.error('detect_card error:', e);
+        return null;
+    }
+}
+
+// ── Status bar trong crop modal ──
+function _showCropStatus(msg, color) {
+    let bar = document.getElementById('cropStatusBar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'cropStatusBar';
+        bar.style.cssText = 'font-size:12px;padding:6px 12px;border-radius:8px;margin-bottom:8px;text-align:center;font-weight:500;width:100%;max-width:480px;';
+        const modal = document.getElementById('photoCropModal');
+        const wrap = document.getElementById('cropCanvasWrap');
+        modal.insertBefore(bar, wrap);
+    }
+    bar.textContent = msg;
+    bar.style.background = color + '22';
+    bar.style.color = color;
+    bar.style.border = '1px solid ' + color + '55';
 }
 
 </script>
