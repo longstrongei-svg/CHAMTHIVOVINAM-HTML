@@ -2287,13 +2287,12 @@ function _initCropModal(img) {
     ovr.style.width = dw+'px'; ovr.style.height = dh+'px';
     src.getContext('2d').drawImage(img, 0, 0, dw, dh);
 
-    // Default corners (10% lề mỗi phía)
-    const m = 0.10;
+    // Mặc định chọn toàn bộ ảnh (100%)
     _cropCorners = [
-        [img.width*m,     img.height*m],
-        [img.width*(1-m), img.height*m],
-        [img.width*(1-m), img.height*(1-m)],
-        [img.width*m,     img.height*(1-m)],
+        [0,          0],
+        [img.width,  0],
+        [img.width,  img.height],
+        [0,          img.height],
     ];
     _refreshCropOverlay();
     _setupCropDrag();
