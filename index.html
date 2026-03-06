@@ -2207,7 +2207,7 @@ function renderClubGrouped(data, exam, highlight) {
             tableRows += `<tr data-id="${c.id}"><td style="width:50px;text-align:center;color:#555;font-weight:600;">${c.global_stt}</td><td>${nm}</td><td style="text-align:center;color:#555;">${c.birth_year||""}</td><td style="color:#555;">${c.unit||""}</td><td><div style="display:flex;flex-direction:column;gap:6px;">
                             <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#1f6fe5;border-radius:6px;padding:6px 10px;font-size:13px;color:#fff;font-weight:500;">
                                 📷 Chụp ảnh
-                                <input type="file" accept="image/*" onchange="openCropModal(this,'${exam}','${c.photo_code}')" style="display:none;">
+                                <input type="file" accept="image/*" capture="environment" onchange="openCropModal(this,'${exam}','${c.photo_code}')" style="display:none;">
                             </label>
                             <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#e7f1ff;border:1.5px solid #1f6fe5;border-radius:6px;padding:6px 10px;font-size:13px;color:#1f6fe5;font-weight:500;">
                                 📁 Chọn file
